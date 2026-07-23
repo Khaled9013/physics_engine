@@ -42,6 +42,5 @@ A fresh-context QA agent receives only repository path and milestone. It perform
 
 - Foundation contracts: complete.
 - Stages 1–23: complete and committed.
-- Stage 24: documentation and examples complete; clean verification pending.
-- Stage 25: pending.
+- Stages 24–25: complete; documentation, examples, fresh Debug/sanitizer, Release/static, and shared acceptance builds passed.
 - QA M1, M2, and M3: passed after documented repair loops.

@@ -6,6 +6,6 @@ Coordinates: right-handed `+x` downrange, `+y` right, `+z` upward; gravity is no
 
 Units: SI only—metres, seconds, kilograms, kelvin, pascals, radians; simulation arithmetic uses IEEE-754 `double`.
 
-Current implementation stage: stage 24 complete; stage 25 clean verification is next.
+Current implementation stage: stage 25 complete; QA M4 final acceptance is next.
 
 Public-contract changes require a rationale, affected-module list, same-commit contract update, and affected-test reruns. No core module may access files. No unsafe floating-point compiler option is permitted.
