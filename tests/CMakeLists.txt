@@ -47,3 +47,18 @@ ballistics_set_warnings(ballistics_integration_tests)
 ballistics_enable_sanitizers(ballistics_integration_tests)
 ballistics_enable_coverage(ballistics_integration_tests)
 add_test(NAME ballistics_integration_tests COMMAND ballistics_integration_tests)
+
+add_executable(ballistics_cli_option_tests
+    application/test_cli_options.c
+    ${PROJECT_SOURCE_DIR}/apps/ballistic_cli/cli_options.c
+)
+target_compile_features(ballistics_cli_option_tests PRIVATE c_std_17)
+set_target_properties(ballistics_cli_option_tests PROPERTIES C_EXTENSIONS OFF)
+target_include_directories(ballistics_cli_option_tests PRIVATE
+    ${PROJECT_SOURCE_DIR}/apps/ballistic_cli
+)
+target_link_libraries(ballistics_cli_option_tests PRIVATE ballistics::core ballistics_unity)
+ballistics_set_warnings(ballistics_cli_option_tests)
+ballistics_enable_sanitizers(ballistics_cli_option_tests)
+ballistics_enable_coverage(ballistics_cli_option_tests)
+add_test(NAME ballistics_cli_option_tests COMMAND ballistics_cli_option_tests)

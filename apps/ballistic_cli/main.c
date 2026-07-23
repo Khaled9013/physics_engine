@@ -3,6 +3,7 @@
 #include "file_byte_sink.h"
 
 #include <locale.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -10,6 +11,7 @@
 #define BALLISTICS_CLI_RESULT_CAPACITY 256U
 #define BALLISTICS_CLI_FORCE_MODEL_COUNT 2U
 #define BALLISTICS_CLI_STOP_CONDITION_COUNT 4U
+#define BALLISTICS_CLI_DEGREES_TO_RADIANS 0.017453292519943295769236907684886
 
 static const char *stop_reason_name(BallisticsStopReason reason)
 {
@@ -118,20 +120,37 @@ int main(int argc, char **argv)
     }
 
     {
-        const BallisticsProjectile projectile = {0.018, 0.009, 6.3617e-5};
-        const BallisticsLaunchState launch = {{0.0, 0.0, 1.5}, {1.0, 0.0, 0.08}, 310.0};
+        const double elevation_rad =
+            options.elevation_deg * BALLISTICS_CLI_DEGREES_TO_RADIANS;
+        const double azimuth_rad = options.azimuth_deg * BALLISTICS_CLI_DEGREES_TO_RADIANS;
+        const BallisticsProjectile projectile = {options.projectile_mass_kg,
+                                                 options.projectile_diameter_m,
+                                                 options.reference_area_m2};
+        const BallisticsLaunchState launch = {
+            {0.0, 0.0, options.initial_height_m},
+            {cos(elevation_rad) * cos(azimuth_rad),
+             cos(elevation_rad) * sin(azimuth_rad),
+             sin(elevation_rad)},
+            options.launch_speed_mps};
         const BallisticsLauncherMetadata metadata = {
             "synthetic-research-launcher.v1", "Synthetic Research Launcher", 0.04, 0.0};
         const BallisticsConstantEnvironmentConfig environment_config = {
-            1.225, {0.0, 2.0, 0.0}};
-        const BallisticsBasicDragConfig drag_config = {0.29};
+            options.air_density_kgpm3,
+            {options.wind_x_mps, options.wind_y_mps, options.wind_z_mps}};
+        const BallisticsConstantGravityConfig gravity_config = {
+            {0.0, 0.0, -options.gravity_mps2}};
+        const BallisticsBasicDragConfig drag_config = {options.drag_coefficient};
         const BallisticsGroundStopConfig ground_config = {0.0};
         const BallisticsMaximumTimeStopConfig maximum_time_config = {options.maximum_time_s};
-        const BallisticsMaximumDistanceStopConfig maximum_distance_config = {5000.0};
+        const BallisticsMaximumDistanceStopConfig maximum_distance_config = {
+            options.maximum_distance_m};
         const BallisticsInvalidStateStopConfig invalid_state_config = {0U};
         BallisticsProjectileState initial_state;
-        BallisticsSimulationConfig simulation_config = {
-            options.time_step_s, options.maximum_time_s, 5000.0, 0.0, options.integrator_id};
+        BallisticsSimulationConfig simulation_config = {options.time_step_s,
+                                                         options.maximum_time_s,
+                                                         options.maximum_distance_m,
+                                                         0.0,
+                                                         options.integrator_id};
 
         status = ballistics_projectile_validate(&projectile);
         if (status == BALLISTICS_STATUS_OK)
@@ -158,7 +177,11 @@ int main(int argc, char **argv)
             goto cleanup;
         }
         status = ballistics_force_model_registry_create_instance(
-            force_registry, BALLISTICS_CONSTANT_GRAVITY_MODEL_ID, NULL, 0U, &gravity);
+            force_registry,
+            BALLISTICS_CONSTANT_GRAVITY_MODEL_ID,
+            &gravity_config,
+            sizeof(gravity_config),
+            &gravity);
         if (status == BALLISTICS_STATUS_OK)
         {
             status = ballistics_force_model_registry_create_instance(
