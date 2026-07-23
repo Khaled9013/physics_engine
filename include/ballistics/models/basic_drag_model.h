@@ -2,7 +2,7 @@
 #define BALLISTICS_MODELS_BASIC_DRAG_MODEL_H
 
 #include "ballistics/interfaces/drag_model_interface.h"
-#include "ballistics/registry/force_model_registry.h"
+#include <stddef.h>
 
 #define BALLISTICS_BASIC_DRAG_MODEL_ID "basic-drag.v1"
 

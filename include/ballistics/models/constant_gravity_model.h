@@ -2,7 +2,7 @@
 #define BALLISTICS_MODELS_CONSTANT_GRAVITY_MODEL_H
 
 #include "ballistics/interfaces/gravity_model_interface.h"
-#include "ballistics/registry/force_model_registry.h"
+#include <stddef.h>
 
 #define BALLISTICS_CONSTANT_GRAVITY_MODEL_ID "constant-gravity.v1"
 

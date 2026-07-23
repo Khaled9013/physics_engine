@@ -3,7 +3,6 @@
 
 #include "ballistics/interfaces/equation_interface.h"
 #include "ballistics/math/vector3.h"
-#include "ballistics/registry/equation_registry.h"
 
 #define BALLISTICS_ACCELERATION_EQUATION_ID "acceleration-from-force.v1"
 

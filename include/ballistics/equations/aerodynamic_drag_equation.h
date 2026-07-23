@@ -3,7 +3,6 @@
 
 #include "ballistics/interfaces/equation_interface.h"
 #include "ballistics/math/vector3.h"
-#include "ballistics/registry/equation_registry.h"
 
 #define BALLISTICS_AERODYNAMIC_DRAG_EQUATION_ID "basic-aerodynamic-drag.v1"
 
