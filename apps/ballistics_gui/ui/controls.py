@@ -46,10 +46,10 @@ class ScenarioControls(QWidget):
         launch = QGroupBox("Fictional launch")
         launch_form = QFormLayout(launch)
         self._add_field(launch_form, "Speed (m/s)", "launch_speed_mps", 0.0, 1500.0, 310.0, 1)
-        self._add_field(launch_form, "Elevation (deg)", "elevation_deg", -10.0, 85.0, 4.5739212599, 3)
+        self._add_field(launch_form, "Elevation (deg)", "elevation_deg", -10.0, 85.0, 0.2, 3)
         self._add_field(launch_form, "Azimuth (deg)", "azimuth_deg", -90.0, 90.0, 0.0, 3)
         self._add_field(launch_form, "Height (m)", "initial_height_m", 0.01, 1000.0, 1.5, 2)
-        self._add_field(launch_form, "Target distance (m)", "target_distance_m", 25.0, 1000.0, 250.0, 1)
+        self._add_field(launch_form, "Target distance (m)", "target_distance_m", 25.0, 1000.0, 150.0, 1)
         panel_layout.addWidget(launch)
 
         projectile = QGroupBox("Synthetic projectile")
@@ -107,6 +107,11 @@ class ScenarioControls(QWidget):
         config = ScenarioConfig(integrator=self.integrator.currentText(), **values)
         config.validate()
         return config
+
+
+    def set_aim(self, elevation_deg: float, azimuth_deg: float) -> None:
+        self._fields["elevation_deg"].setValue(elevation_deg)
+        self._fields["azimuth_deg"].setValue(azimuth_deg)
 
     def set_busy(self, busy: bool) -> None:
         self.fire_button.setDisabled(busy)

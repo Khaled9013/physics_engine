@@ -14,7 +14,10 @@ def _repository_root() -> Path:
 
 def _arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Native fictional ballistics range")
-    parser.add_argument("--smoke-test", action="store_true", help="open briefly and exit")
+    parser.add_argument("--smoke-test", action="store_true", help="run one shot and exit")
+    parser.add_argument("--screenshot", type=Path, help="save Panda3D framebuffer in smoke mode")
+    parser.add_argument("--window-screenshot", type=Path, help="save complete desktop window in smoke mode")
+    parser.add_argument("--smoke-scope", action="store_true", help="raise scope during smoke test")
     parser.add_argument(
         "--cli",
         type=Path,
@@ -57,7 +60,16 @@ def main() -> int:
     window = MainWindow(cli_path)
     window.show()
     if arguments.smoke_test:
-        QTimer.singleShot(250, application.quit)
+        QTimer.singleShot(250, window.fire)
+        if arguments.smoke_scope:
+            QTimer.singleShot(500, window.viewport.toggle_scope)
+        if arguments.screenshot is not None:
+            screenshot_path = arguments.screenshot.resolve()
+            QTimer.singleShot(1800, lambda: window.save_viewport_screenshot(screenshot_path))
+        if arguments.window_screenshot is not None:
+            window_screenshot_path = arguments.window_screenshot.resolve()
+            QTimer.singleShot(1850, lambda: window.save_window_screenshot(window_screenshot_path))
+        QTimer.singleShot(2200, application.quit)
     return application.exec()
 
 

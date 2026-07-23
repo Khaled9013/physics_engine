@@ -32,7 +32,7 @@ class ScenarioConfig:
     projectile_diameter_m: float = 0.009
     reference_area_m2: float = 6.3617e-5
     launch_speed_mps: float = 310.0
-    elevation_deg: float = 4.573921259900861
+    elevation_deg: float = 0.2
     azimuth_deg: float = 0.0
     initial_height_m: float = 1.5
     drag_coefficient: float = 0.29
@@ -41,7 +41,7 @@ class ScenarioConfig:
     wind_y_mps: float = 2.0
     wind_z_mps: float = 0.0
     gravity_mps2: float = 9.80665
-    target_distance_m: float = 250.0
+    target_distance_m: float = 150.0
 
     def validate(self) -> None:
         if self.integrator not in {"rk4.v1", "euler.v1"}:
