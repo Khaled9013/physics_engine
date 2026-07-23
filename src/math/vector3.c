@@ -82,21 +82,28 @@ BallisticsStatus ballistics_vector3_magnitude(const BallisticsVector3 *vector,
 BallisticsStatus ballistics_vector3_normalize(const BallisticsVector3 *vector,
                                               BallisticsVector3 *out_normalized)
 {
-    double magnitude;
-    BallisticsStatus status;
+    double largest_component;
+    double scaled_magnitude;
+    BallisticsVector3 scaled;
 
-    if (out_normalized == NULL)
+    if (!ballistics_vector3_is_finite(vector) || out_normalized == NULL)
     {
         return BALLISTICS_STATUS_INVALID_ARGUMENT;
     }
-    status = ballistics_vector3_magnitude(vector, &magnitude);
-    if (status != BALLISTICS_STATUS_OK)
-    {
-        return status;
-    }
-    if (magnitude == 0.0)
+    largest_component = fmax(fabs(vector->x), fmax(fabs(vector->y), fabs(vector->z)));
+    if (largest_component == 0.0)
     {
         return BALLISTICS_STATUS_INVALID_ARGUMENT;
     }
-    return ballistics_vector3_scale(vector, 1.0 / magnitude, out_normalized);
+
+    /* Scaling first avoids overflow near DBL_MAX and reciprocal overflow for subnormals. */
+    scaled.x = vector->x / largest_component;
+    scaled.y = vector->y / largest_component;
+    scaled.z = vector->z / largest_component;
+    scaled_magnitude = hypot(hypot(scaled.x, scaled.y), scaled.z);
+    out_normalized->x = scaled.x / scaled_magnitude;
+    out_normalized->y = scaled.y / scaled_magnitude;
+    out_normalized->z = scaled.z / scaled_magnitude;
+    return ballistics_vector3_is_finite(out_normalized) ? BALLISTICS_STATUS_OK
+                                                        : BALLISTICS_STATUS_NUMERICAL_ERROR;
 }
