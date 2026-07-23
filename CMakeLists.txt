@@ -29,6 +29,7 @@ ballistics_select_port(BALLISTICS_PORT_SOURCE)
 
 add_library(ballistics_core ${BALLISTICS_LIBRARY_TYPE}
     src/core/status.c
+    src/debug/ballistics_debug.c
     ${BALLISTICS_PORT_SOURCE}
 )
 add_library(ballistics::core ALIAS ballistics_core)
