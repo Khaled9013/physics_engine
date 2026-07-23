@@ -14,6 +14,7 @@
 #include "ballistics/interfaces/equation_interface.h"
 #include "ballistics/interfaces/environment_interface.h"
 #include "ballistics/interfaces/force_model_interface.h"
+#include "ballistics/interfaces/integrator_interface.h"
 #include "ballistics/interfaces/gravity_model_interface.h"
 #include "ballistics/interfaces/drag_model_interface.h"
 #include "ballistics/models/constant_environment_model.h"
