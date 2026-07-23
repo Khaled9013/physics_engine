@@ -17,6 +17,7 @@
 #include "ballistics/interfaces/drag_model_interface.h"
 #include "ballistics/models/constant_environment_model.h"
 #include "ballistics/models/constant_gravity_model.h"
+#include "ballistics/models/basic_drag_model.h"
 #include "ballistics/equations/air_relative_velocity_equation.h"
 #include "ballistics/equations/aerodynamic_drag_equation.h"
 #include "ballistics/equations/acceleration_equation.h"
