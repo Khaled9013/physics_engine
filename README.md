@@ -1,8 +1,7 @@
-# Ballistics Simulation — Phase One
+# Ballistics Simulation 
 
-A modular C17 virtual research simulator for three-dimensional point-mass projectile motion. It is entirely software-defined: no physical weapon, live sensor, or live-fire hardware is used or required.
+A modular C17 virtual research simulator for three-dimensional point-mass projectile motion. 
 
-Phase One provides configurable projectile/launch data, constant gravity/density/wind, vector quadratic drag, replaceable Euler and RK4 integration, interpolated ground impact, time/distance/numerical stop conditions, deterministic CSV output, a Linux CLI, registries, centralized debug logging, and Unity/CTest verification.
 
 Coordinates are `+x` downrange, `+y` right, `+z` upward. All internal values are SI `double`.
 
