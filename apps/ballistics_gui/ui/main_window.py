@@ -13,6 +13,7 @@ from PyQt6.QtWidgets import (
     QMainWindow,
     QPlainTextEdit,
     QSplitter,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -24,17 +25,22 @@ from .range_widget import RangeWidget
 
 
 class MainWindow(QMainWindow):
+    """Native application shell around the Panda3D range and C solver."""
+
     def __init__(self, cli_path: Path) -> None:
         super().__init__()
         self.cli_path = cli_path
         self.thread_pool = QThreadPool(self)
         self._request_id = 0
         self._workers: dict[int, SimulationWorker] = {}
-        self.setWindowTitle("Ballistics Range Lab — Phase Two")
-        self.resize(1440, 900)
-        self.setMinimumSize(1100, 700)
+        self.setWindowTitle("Ballistics Range Lab — Phase 2.1")
+        self.resize(1500, 920)
+        self.setMinimumSize(1120, 720)
 
         splitter = QSplitter(Qt.Orientation.Horizontal)
+        splitter.setObjectName("mainSplitter")
+        splitter.setChildrenCollapsible(False)
+        splitter.setHandleWidth(2)
         self.viewport = RangeWidget()
         self.viewport.fire_requested.connect(self.fire)
         self.viewport.aim_changed.connect(self._aim_changed)
@@ -44,44 +50,88 @@ class MainWindow(QMainWindow):
         splitter.addWidget(self.viewport)
         splitter.addWidget(self._build_side_panel())
         splitter.setStretchFactor(0, 1)
-        splitter.setSizes([1040, 400])
+        splitter.setStretchFactor(1, 0)
+        splitter.setSizes([1110, 390])
         self.setCentralWidget(splitter)
         self.statusBar().showMessage("Initializing native GPU range…")
 
     def _build_side_panel(self) -> QWidget:
         panel = QWidget()
-        panel.setMinimumWidth(350)
-        panel.setMaximumWidth(470)
+        panel.setObjectName("controlPanel")
+        panel.setMinimumWidth(355)
+        panel.setMaximumWidth(430)
         layout = QVBoxLayout(panel)
-        heading = QLabel("RANGE CONTROL")
-        heading.setStyleSheet("font-size: 20px; font-weight: 800; color: #8fd3ff;")
-        layout.addWidget(heading)
-        self.metrics: dict[str, QLabel] = {}
-        metrics = QFrame()
-        grid = QGridLayout(metrics)
-        for index, (name, initial) in enumerate(
-            [("Time", "— s"), ("Range", "— m"), ("Drift", "— m"), ("Speed", "— m/s")]
-        ):
-            label = QLabel(name.upper())
-            value = QLabel(initial)
-            value.setObjectName("metricValue")
-            grid.addWidget(label, index // 2 * 2, index % 2)
-            grid.addWidget(value, index // 2 * 2 + 1, index % 2)
-            self.metrics[name] = value
-        layout.addWidget(metrics)
+        layout.setContentsMargins(18, 18, 18, 12)
+        layout.setSpacing(12)
+
+        eyebrow = QLabel("BALLISTICS LAB  /  PHASE 2.1")
+        eyebrow.setObjectName("eyebrow")
+        layout.addWidget(eyebrow)
+        title = QLabel("Virtual Range")
+        title.setObjectName("panelTitle")
+        layout.addWidget(title)
+        subtitle = QLabel("Local simulation · native GPU view · deterministic C core")
+        subtitle.setObjectName("panelSubtitle")
+        subtitle.setWordWrap(True)
+        layout.addWidget(subtitle)
+        layout.addWidget(self._build_metrics())
 
         self.controls = ScenarioControls()
         self.controls.fire_requested.connect(self.fire)
         self.controls.scope_requested.connect(self.viewport.toggle_scope)
         self.controls.reset_requested.connect(self.reset)
         layout.addWidget(self.controls, 1)
+
+        self.log_toggle = QToolButton()
+        self.log_toggle.setObjectName("logToggle")
+        self.log_toggle.setText("Session log")
+        self.log_toggle.setCheckable(True)
+        self.log_toggle.setArrowType(Qt.ArrowType.RightArrow)
+        self.log_toggle.setToolButtonStyle(
+            Qt.ToolButtonStyle.ToolButtonTextBesideIcon
+        )
+        self.log_toggle.toggled.connect(self._set_log_visible)
+        layout.addWidget(self.log_toggle)
+
         self.event_log = QPlainTextEdit()
+        self.event_log.setObjectName("eventLog")
         self.event_log.setReadOnly(True)
         self.event_log.setMaximumBlockCount(100)
-        self.event_log.setFixedHeight(120)
+        self.event_log.setFixedHeight(92)
+        self.event_log.hide()
         layout.addWidget(self.event_log)
         self._log("Desktop shell initialized")
         return panel
+
+    def _build_metrics(self) -> QWidget:
+        container = QWidget()
+        container.setObjectName("metricsGrid")
+        grid = QGridLayout(container)
+        grid.setContentsMargins(0, 2, 0, 2)
+        grid.setHorizontalSpacing(8)
+        grid.setVerticalSpacing(8)
+        self.metrics: dict[str, QLabel] = {}
+        entries = (
+            ("Time", "— s"),
+            ("Range", "— m"),
+            ("Drift", "— m"),
+            ("Speed", "— m/s"),
+        )
+        for index, (name, initial) in enumerate(entries):
+            card = QFrame()
+            card.setObjectName("metricCard")
+            card_layout = QVBoxLayout(card)
+            card_layout.setContentsMargins(10, 8, 10, 9)
+            card_layout.setSpacing(2)
+            label = QLabel(name.upper())
+            label.setObjectName("metricLabel")
+            value = QLabel(initial)
+            value.setObjectName("metricValue")
+            card_layout.addWidget(label)
+            card_layout.addWidget(value)
+            grid.addWidget(card, index // 2, index % 2)
+            self.metrics[name] = value
+        return container
 
     @pyqtSlot()
     def _renderer_ready(self) -> None:
@@ -103,7 +153,7 @@ class MainWindow(QMainWindow):
 
     @pyqtSlot(bool)
     def _scope_changed(self, enabled: bool) -> None:
-        self._log("Scope raised" if enabled else "Scope lowered")
+        self._log("Optic raised" if enabled else "Optic lowered")
 
     @pyqtSlot()
     def fire(self) -> None:
@@ -168,6 +218,13 @@ class MainWindow(QMainWindow):
         self.viewport.reset_range()
         self.statusBar().showMessage("Range reset")
         self._log("Range reset; pending results will be ignored")
+
+    @pyqtSlot(bool)
+    def _set_log_visible(self, visible: bool) -> None:
+        self.event_log.setVisible(visible)
+        self.log_toggle.setArrowType(
+            Qt.ArrowType.DownArrow if visible else Qt.ArrowType.RightArrow
+        )
 
     @staticmethod
     def _metric_unit(name: str) -> str:
