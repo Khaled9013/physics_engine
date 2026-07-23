@@ -1,10 +1,40 @@
-"""Small procedural building blocks for the self-contained range."""
+"""Reusable procedural geometry and presentation helpers."""
 
 from __future__ import annotations
 
 import math
 
-from panda3d.core import CardMaker, NodePath, PNMImage, Texture, TransparencyAttrib
+from panda3d.core import (
+    CardMaker,
+    Material,
+    NodePath,
+    PNMImage,
+    Texture,
+    TextureStage,
+    TransparencyAttrib,
+)
+
+
+def apply_material(
+    node: NodePath,
+    name: str,
+    color,
+    *,
+    roughness: float = 0.8,
+    metallic: float = 0.0,
+    emission=None,
+) -> Material:
+    """Apply a compact PBR-friendly material to one node hierarchy."""
+
+    material = Material(name)
+    material.setBaseColor(color)
+    material.setRoughness(roughness)
+    material.setMetallic(metallic)
+    if emission is not None:
+        material.setEmission(emission)
+    node.setMaterial(material, 1)
+    node.setColor(*color)
+    return material
 
 
 def add_box(loader, parent: NodePath, name: str, position, scale, color) -> NodePath:
@@ -13,7 +43,7 @@ def add_box(loader, parent: NodePath, name: str, position, scale, color) -> Node
     model.reparentTo(parent)
     model.clearTexture()
     model.setTextureOff(1)
-    model.setColor(*color)
+    apply_material(model, f"{name}-material", color, roughness=0.88)
     model.setPos(*position)
     model.setScale(*scale)
     return model
@@ -25,7 +55,7 @@ def add_sphere(loader, parent: NodePath, name: str, position, scale, color) -> N
     model.reparentTo(parent)
     model.clearTexture()
     model.setTextureOff(1)
-    model.setColor(*color)
+    apply_material(model, f"{name}-material", color, roughness=0.82)
     model.setPos(*position)
     model.setScale(*scale)
     return model
@@ -35,42 +65,70 @@ def add_card(parent: NodePath, name: str, frame, color) -> NodePath:
     maker = CardMaker(name)
     maker.setFrame(*frame)
     card = parent.attachNewNode(maker.generate())
-    card.setColor(*color)
+    apply_material(card, f"{name}-material", color, roughness=0.94)
     card.setTwoSided(True)
     return card
 
 
-def make_scope_texture(width: int = 640, height: int = 360) -> Texture:
-    """Build a decorative scope mask and reticle without an external image asset."""
+def add_textured_card(
+    parent: NodePath,
+    name: str,
+    frame,
+    texture: Texture,
+    texture_scale: tuple[float, float],
+) -> NodePath:
+    """Create a two-sided card with repeatable UV scale."""
+
+    card = add_card(parent, name, frame, (1.0, 1.0, 1.0, 1.0))
+    stage = TextureStage.getDefault()
+    card.setTexture(stage, texture, 1)
+    card.setTexScale(stage, *texture_scale)
+    return card
+
+
+def make_scope_texture(width: int = 960, height: int = 540) -> Texture:
+    """Build a high-resolution vignette and precision reticle."""
 
     image = PNMImage(width, height, 4)
     center_x = (width - 1) * 0.5
     center_y = (height - 1) * 0.5
-    radius = min(width, height) * 0.46
-    ring_inner = radius - 2.5
-    reticle_color = (0.72, 0.86, 0.76)
+    radius = min(width, height) * 0.475
+    ring_inner = radius - 3.0
+    reticle = (0.60, 0.76, 0.66)
     for y in range(height):
         dy = y - center_y
         for x in range(width):
             dx = x - center_x
             distance = math.hypot(dx, dy)
-            alpha = 0.0
             red = green = blue = 0.0
+            alpha = 0.0
             if distance > radius:
-                alpha = 0.97
+                alpha = 0.985
             elif distance >= ring_inner:
-                red, green, blue = reticle_color
-                alpha = 0.9
-            elif (abs(dx) <= 0.7 and abs(dy) > 10.0) or (
-                abs(dy) <= 0.7 and abs(dx) > 10.0
-            ):
-                red, green, blue = reticle_color
-                alpha = 0.72
-            elif 7.0 <= distance <= 8.5:
-                red, green, blue = reticle_color
-                alpha = 0.75
+                red, green, blue = (0.13, 0.18, 0.17)
+                alpha = 0.96
+            else:
+                edge = max(0.0, (distance / radius - 0.70) / 0.30)
+                red, green, blue = (0.015, 0.04, 0.035)
+                alpha = edge * edge * 0.58
+
+                horizontal = abs(dy) <= 0.65 and 13.0 < abs(dx) < radius - 18.0
+                vertical = abs(dx) <= 0.65 and 13.0 < abs(dy) < radius - 18.0
+                center_ring = 7.2 <= distance <= 8.7
+                tick = False
+                if abs(dy) <= 4.0:
+                    tick = any(abs(abs(dx) - mark) <= 0.75 for mark in (45, 90, 135, 180))
+                if abs(dx) <= 4.0:
+                    tick = tick or any(
+                        abs(abs(dy) - mark) <= 0.75 for mark in (45, 90, 135, 180)
+                    )
+                if horizontal or vertical or center_ring or tick:
+                    red, green, blue = reticle
+                    alpha = max(alpha, 0.82 if tick else 0.72)
+
             image.setXelA(x, y, red, green, blue, alpha)
-    texture = Texture("procedural-scope-overlay")
+
+    texture = Texture("precision-scope-overlay")
     texture.load(image)
     texture.setMinfilter(Texture.FTLinear)
     texture.setMagfilter(Texture.FTLinear)
