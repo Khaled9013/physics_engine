@@ -1,0 +1,8 @@
+#ifndef BALLISTICS_BALLISTICS_H
+#define BALLISTICS_BALLISTICS_H
+
+#include "ballistics/export.h"
+#include "ballistics/status.h"
+#include "ballistics/types.h"
+
+#endif

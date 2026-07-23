@@ -26,7 +26,7 @@ else()
 endif()
 
 add_library(ballistics_core ${BALLISTICS_LIBRARY_TYPE}
-    src/core/build_anchor.c
+    src/core/status.c
 )
 add_library(ballistics::core ALIAS ballistics_core)
 
