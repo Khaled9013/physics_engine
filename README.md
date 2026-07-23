@@ -149,3 +149,8 @@ Repository source is MIT licensed. Panda3D is BSD licensed. PyQt6 is available u
 commercial license; distributing a combined GUI build with the GPL edition requires compliance with
 its GPL terms. Organizations needing different distribution terms must obtain the appropriate PyQt
 commercial license.
+## Known GUI limitations
+
+The initial embedding port uses Linux/X11 or XWayland, not native Wayland. Visuals are procedural
+low-poly geometry, and the Python application currently communicates with C through the CLI rather
+than direct shared-library bindings. See `docs/phase_two_acceptance.md` for the verified matrix.

@@ -111,6 +111,7 @@ PyQt6 is GPL-3.0/commercial dual licensed. Panda3D is BSD licensed.
 - Python tests and a Linux screenshot smoke test pass.
 ## Current progress
 
-- Stages 1–4: complete and committed.
-- Stage 5: dependency setup, launch/test scripts, worker coverage, and user documentation complete.
-- Stage 6: final clean-build, sanitizer, native GPU acceptance, and push pending.
+- Stages 1–5: complete and committed.
+- Stage 6: fresh Debug/static, Release/static, Release/shared, ASan/UBSan, Python, and native GPU
+  acceptance passed. See [`phase_two_acceptance.md`](phase_two_acceptance.md).
+- Final acceptance commit and push are the only remaining repository operations.

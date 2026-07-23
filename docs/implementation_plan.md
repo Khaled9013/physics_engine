@@ -48,3 +48,4 @@ A fresh-context QA agent receives only repository path and milestone. It perform
 
 Phase Two native GUI work is governed by [`phase_two_plan.md`](phase_two_plan.md). The frozen Phase
 One public C contracts remain unchanged.
+Phase Two native GUI stages 1–6 are implemented and final acceptance passed; see `phase_two_acceptance.md`.
