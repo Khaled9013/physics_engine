@@ -51,7 +51,7 @@ BallisticsStatus ballistics_launch_state_to_projectile_state(
 BallisticsStatus ballistics_launcher_metadata_validate(const BallisticsLauncherMetadata *metadata)
 {
     if (metadata == NULL || !isfinite(metadata->sight_height_m) ||
-        metadata->sight_height_m < 0.0 || !isfinite(metadata->bore_angle_rad))
+        !isfinite(metadata->bore_angle_rad))
     {
         return BALLISTICS_STATUS_INVALID_ARGUMENT;
     }
