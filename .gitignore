@@ -1,0 +1,10 @@
+/build/
+/build-*/
+/Testing/
+*.gcda
+*.gcno
+*.gcov
+*.profraw
+*.profdata
+trajectory.csv
+.DS_Store
