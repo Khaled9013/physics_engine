@@ -21,7 +21,7 @@ function(ballistics_reject_unsafe_math_flags)
         "${CMAKE_C_FLAGS_MINSIZEREL}"
     )
     foreach(_flags IN LISTS _ballistics_flag_sets)
-        if(_flags MATCHES "(^|[ ;])(-ffast-math|-Ofast|-funsafe-math-optimizations)([ ;]|$)")
+        if(_flags MATCHES "(^|[ ;])(-ffast-math|-Ofast|-funsafe-math-optimizations|-ffinite-math-only|-fno-signed-zeros|-fno-trapping-math|-fassociative-math|-freciprocal-math|-fcx-limited-range|-fexcess-precision=fast|-ffp-contract=fast|-ffp-model=(fast|aggressive)|-menable-unsafe-fp-math)([ ;]|$)")
             message(FATAL_ERROR "Unsafe floating-point option is forbidden: ${_flags}")
         endif()
     endforeach()
