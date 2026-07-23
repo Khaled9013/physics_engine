@@ -5,6 +5,7 @@
 #include "ballistics/equations/air_relative_velocity_equation.h"
 #include "ballistics/models/constant_gravity_model.h"
 #include "ballistics/models/basic_drag_model.h"
+#include "ballistics/integrators/euler_integrator.h"
 
 BallisticsStatus ballistics_register_builtin_equations(BallisticsEquationRegistry *registry)
 {
@@ -63,4 +64,15 @@ BallisticsStatus ballistics_register_builtin_force_models(BallisticsForceModelRe
         }
     }
     return BALLISTICS_STATUS_OK;
+}
+
+
+BallisticsStatus ballistics_register_builtin_integrators(BallisticsIntegratorRegistry *registry)
+{
+    if (registry == NULL)
+    {
+        return BALLISTICS_STATUS_INVALID_ARGUMENT;
+    }
+    return ballistics_integrator_registry_register(
+        registry, BALLISTICS_EULER_INTEGRATOR_ID, ballistics_euler_integrator_factory);
 }

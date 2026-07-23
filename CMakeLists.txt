@@ -39,6 +39,7 @@ add_library(ballistics_core ${BALLISTICS_LIBRARY_TYPE}
     src/interfaces/environment_interface.c
     src/interfaces/force_model_interface.c
     src/interfaces/integrator_interface.c
+    src/integrators/euler_integrator.c
     src/physics/constant_environment_model.c
     src/physics/constant_gravity_model.c
     src/physics/basic_drag_model.c
