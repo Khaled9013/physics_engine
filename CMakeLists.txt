@@ -94,9 +94,7 @@ ballistics_set_warnings(ballistics_core)
 ballistics_enable_sanitizers(ballistics_core)
 ballistics_enable_coverage(ballistics_core)
 
-# These named skeleton targets are replaced by real executable/test targets at their
-# implementation stages, while preserving the required top-level target names.
-add_custom_target(ballistics_cli)
+add_subdirectory(apps/ballistic_cli)
 if(BALLISTICS_BUILD_TESTS)
     enable_testing()
     add_custom_target(ballistics_tests)
