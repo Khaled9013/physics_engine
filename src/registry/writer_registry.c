@@ -27,12 +27,16 @@ BallisticsStatus ballistics_writer_registry_create(
     void *memory = NULL;
     BallisticsStatus status;
 
-    if (out_registry == NULL || capacity == 0U ||
-        capacity > SIZE_MAX / sizeof(BallisticsWriterRegistryEntry))
+    if (out_registry == NULL)
     {
         return BALLISTICS_STATUS_INVALID_ARGUMENT;
     }
     *out_registry = NULL;
+    if (capacity == 0U ||
+        capacity > SIZE_MAX / sizeof(BallisticsWriterRegistryEntry))
+    {
+        return BALLISTICS_STATUS_INVALID_ARGUMENT;
+    }
     status = ballistics_port_allocate(sizeof(*registry), &memory);
     if (status != BALLISTICS_STATUS_OK)
     {
