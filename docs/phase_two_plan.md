@@ -109,3 +109,8 @@ PyQt6 is GPL-3.0/commercial dual licensed. Panda3D is BSD licensed.
 - Identical GUI settings produce the same CSV bytes through the same CLI binary.
 - Existing Phase One tests and sanitizers still pass.
 - Python tests and a Linux screenshot smoke test pass.
+## Current progress
+
+- Stages 1–4: complete and committed.
+- Stage 5: dependency setup, launch/test scripts, worker coverage, and user documentation complete.
+- Stage 6: final clean-build, sanitizer, native GPU acceptance, and push pending.

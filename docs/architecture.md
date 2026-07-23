@@ -66,3 +66,9 @@ Force iteration, condition priority, samples, columns, formatting (`%.9e`), and 
 ## Future plugin shape
 
 Stable identifiers and uniform factories are compatible with a future loader, but loading, ABI negotiation, and trust policy are deferred. New enum values and interface versions are appended; existing values are not renumbered.
+## Phase Two desktop boundary
+
+The native application adds an outward-only layer: PyQt6 owns widgets and a `QThreadPool`, Panda3D
+owns the embedded X11/OpenGL viewport, and immutable workers invoke `ballistics_cli`. The GUI never
+reimplements physics. Ballistics `(x,y,z)` maps to Panda3D `(y,x,z)` once in `render/coordinates.py`.
+See [`gui_architecture.md`](gui_architecture.md) for lifecycle, rendering, and failure contracts.

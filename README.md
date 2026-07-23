@@ -1,38 +1,59 @@
-# Ballistics Simulation — Phase One
+# Ballistics Simulation Lab
 
-A modular C17 virtual research simulator for three-dimensional point-mass projectile motion. It is entirely software-defined: no physical weapon, live sensor, or live-fire hardware is used or required.
+A modular virtual external-ballistics research environment. Phase One is a C17 point-mass
+simulation library and CLI. Phase Two adds a native Linux target-range visualization using PyQt6
+and Panda3D. It is entirely software-defined and has no connection to physical weapons, sensors, or
+live-fire hardware.
 
-Phase One provides configurable projectile/launch data, constant gravity/density/wind, vector quadratic drag, replaceable Euler and RK4 integration, interpolated ground impact, time/distance/numerical stop conditions, deterministic CSV output, a Linux CLI, registries, centralized debug logging, and Unity/CTest verification.
+Coordinates are `+x` downrange, `+y` right, and `+z` upward. Core calculations use SI `double`.
 
-Coordinates are `+x` downrange, `+y` right, `+z` upward. All internal values are SI `double`.
+## Capabilities
 
-## Requirements
+Phase One provides configurable projectile/launch data, constant gravity/density/wind, quadratic
+vector drag, Euler and RK4 integration, interpolated ground impact, deterministic CSV output,
+registries, debug logging, and CTest/Unity verification.
+
+Phase Two provides a local desktop window with:
+
+- A GPU-rendered low-poly practice range with non-human geometric targets.
+- Procedural first-person arms and a fictional precision rifle.
+- Mouse aiming, a decorative scope, recoil, muzzle flash, tracer, and impact animation.
+- PyQt controls for numerical, launch, projectile, drag, atmosphere, wind, and gravity values.
+- Live time, range, drift, speed, hit/miss, and event telemetry.
+- `QThreadPool` shot calculation so the UI and renderer remain responsive.
+
+The desktop application contains no browser, web view, HTTP server, or network listener. It is a
+fictional visualization, not a real-firearm trainer: it ships no real weapon profiles, optic
+calibration, human targets, live hardware integration, or automatic aiming solver.
+
+## Core requirements
 
 - Linux
 - CMake 3.20 or newer
-- GCC with C17 support (Clang is also supported)
-- A normal C standard library and `libm`
+- GCC or Clang with C17 support
+- Standard C library and `libm`
 
-Unity is vendored; no system test framework is needed. The core has no Python, GUI, game-engine, or filesystem dependency.
+Unity is vendored. The core has no Python, Qt, Panda3D, GUI, or filesystem dependency.
 
-## Build and test
+## Build and test the C project
 
 ```bash
-cmake -S . -B build \
-  -DCMAKE_BUILD_TYPE=Debug \
-  -DBALLISTICS_BUILD_TESTS=ON \
-  -DBALLISTICS_ENABLE_SANITIZERS=ON
-cmake --build build
+./scripts/build_debug.sh
+./scripts/run_tests.sh
+```
+
+Equivalent manual commands:
+
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DBALLISTICS_BUILD_TESTS=ON
+cmake --build build --parallel
 ctest --test-dir build --output-on-failure
 ```
 
 Release uses `-O2` while preserving IEEE-754 semantics:
 
 ```bash
-cmake -S . -B build-release \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DBALLISTICS_BUILD_TESTS=OFF
-cmake --build build-release
+./scripts/build_release.sh
 ```
 
 Shared library:
@@ -42,43 +63,89 @@ cmake -S . -B build-shared -DBALLISTICS_BUILD_SHARED=ON
 cmake --build build-shared
 ```
 
-Coverage is enabled with `-DBALLISTICS_ENABLE_COVERAGE=ON`. Unsafe flags including `-ffast-math`, `-Ofast`, and `-ffinite-math-only` are rejected at configure time.
+Unsafe floating-point flags such as `-ffast-math`, `-Ofast`, and `-ffinite-math-only` are rejected.
 
-Convenience scripts live in `scripts/`.
+## Run the native GUI
+
+The initial desktop port requires Linux/X11 or XWayland, Python 3.10+, and working OpenGL drivers.
+Prepare an isolated project environment once:
+
+```bash
+./scripts/setup_gui.sh
+```
+
+Launch the local application:
+
+```bash
+./scripts/run_gui.sh
+```
+
+Controls:
+
+- Click the 3D viewport to capture the mouse; press `Esc` to release it.
+- Move the mouse to aim.
+- Left-click or select **Fire** to run and animate a C-engine shot.
+- Right-click or select **Scope** to raise/lower the decorative scope.
+- Select **Reset** to clear the trajectory and target feedback.
+
+The launch script builds the C CLI if it is missing. It uses `.venv/` only and defaults Qt to the
+`xcb` backend required by the embedded Panda3D X11 child window.
+
+## Test the GUI
+
+```bash
+./scripts/run_gui_tests.sh
+```
+
+On a machine with an active X11 display, include a real GPU/window smoke test:
+
+```bash
+./scripts/run_gui_tests.sh --smoke
+```
+
+The smoke run executes a real C shot, renders the scope view, saves a temporary framebuffer, and
+exits automatically.
 
 ## CLI
 
+The original command remains supported:
+
 ```bash
-./build/apps/ballistic_cli/ballistics_cli \
-  --integrator rk4.v1 \
-  --time-step 0.001 \
-  --max-time 10.0 \
-  --output trajectory.csv \
-  --debug-level info
+./build/apps/ballistic_cli/ballistics_cli --integrator rk4.v1 --time-step 0.002 --max-time 5.0 --output trajectory.csv --debug-level warning
 ```
 
-The CLI uses a clearly fictional synthetic profile. It owns the `FILE *` and supplies a byte sink; the core and CSV writer never open or close files.
+Run `./build/apps/ballistic_cli/ballistics_cli --help` for the expanded synthetic scenario options.
+The CLI owns its `FILE *` and supplies a byte sink; the core and CSV writer never open files.
+
+## Threading and GPU boundary
+
+Qt widgets and Panda3D scene nodes stay on the GUI thread. Immutable shot jobs invoke the C CLI and
+parse deterministic CSV in Qt's worker pool. Panda3D owns OpenGL rendering and may use a threaded
+cull/draw pipeline. Simulation workers never mutate the scene graph.
+
+Ballistics coordinates map to Panda3D exactly once: `(x, y, z)` becomes `(y, x, z)` because Panda3D
+uses `+y` as forward.
 
 ## Repository overview
 
 - `include/ballistics/`: public C API and extension interfaces
-- `src/equations/`: reusable pure calculations
-- `src/physics/`: environment, force models, and dynamics aggregation
-- `src/integrators/`: fixed-step Euler and classical RK4
-- `src/stop_conditions/`: concrete termination rules
-- `src/output/`: byte-sink CSV serialization
-- `src/port/`: exactly one selected platform implementation
-- `apps/`: application-owned resources and CLI
-- `tests/`: vendored Unity, unit tests, integration tests, memory sink
-- `docs/`: contracts, ADR, architecture, extension and porting guides
+- `src/`: core, equations, physics, integrators, output, registries, and Linux port
+- `apps/ballistic_cli/`: Linux CLI and file-backed byte sink
+- `apps/ballistics_gui/`: PyQt shell, worker bridge, procedural Panda3D range
+- `tests/`: Unity C tests and Python GUI tests
+- `docs/phase_two_plan.md`: native GUI scope and acceptance contract
+- `docs/gui_architecture.md`: desktop module, rendering, and thread boundaries
+- `scripts/`: build, sanitizer, GUI setup, launch, and test helpers
 
 ## Extension points
 
-Stable registries resolve equations, force models, integrators, and writers by versioned identifier. Typed create functions remain available without registries. See:
+Stable registries resolve equations, force models, integrators, and writers by versioned identifier.
+See `docs/adding_an_equation.md`, `docs/adding_a_force_model.md`,
+`docs/adding_an_integrator.md`, and `docs/porting_guide.md`.
 
-- `docs/adding_an_equation.md`
-- `docs/adding_a_force_model.md`
-- `docs/adding_an_integrator.md`
-- `docs/porting_guide.md`
+## Licensing note
 
-Phase One intentionally does not implement 6-DOF, adaptive stepping, terrain, sensors, inverse aiming, tracking, Monte Carlo analysis, GUI/game-engine integration, JSON profiles, dynamic-library plugins, or Python bindings. `docs/python_integration_plan.md` describes the prepared ABI path.
+Repository source is MIT licensed. Panda3D is BSD licensed. PyQt6 is available under GPL-3.0 or a
+commercial license; distributing a combined GUI build with the GPL edition requires compliance with
+its GPL terms. Organizations needing different distribution terms must obtain the appropriate PyQt
+commercial license.
