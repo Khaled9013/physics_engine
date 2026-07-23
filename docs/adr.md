@@ -65,6 +65,16 @@ CSV uses fixed columns, `%.9e` for every float, fixed commas/newlines, and inser
 
 Library modules do not call `printf`, `fprintf`, or platform clocks. Logs carry level, subsystem, source, function, line, and port timestamp. One documented process-wide debug configuration controls callback and level; it does not affect simulation results. Release can compile out DEBUG/TRACE.
 
+## ADR-010: native PyQt/Panda3D GUI stays outside the core
+
+Phase Two uses PyQt6 for a native Linux desktop shell and embeds Panda3D as the GPU-rendered range
+viewport. There is no browser or network service. Shot calculations execute in a Qt worker pool by
+invoking the existing C CLI without a shell; the GUI owns and removes temporary CSV files.
+
+Qt and Panda3D are application dependencies only. The Phase One core retains no Python, GUI,
+rendering, input, game-engine, or filesystem dependency. The initial embedded-window port targets
+Linux/X11. Scene graph access remains on the GUI thread while immutable jobs run in workers.
+
 ## Consequences
 
 The design uses more small objects than a monolith, but dependencies, ownership, testing, future plugins, Python bindings, and embedded ports remain explicit. Phase One deliberately omits dynamic loading, JSON profiles, adaptive steps, and Python bindings.
