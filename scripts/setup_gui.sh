@@ -10,4 +10,4 @@ if [[ ! -x .venv/bin/python ]]; then
     "${python_command}" -m venv .venv
 fi
 .venv/bin/python -m pip install --requirement requirements-gui.txt
-.venv/bin/python -c 'import PyQt6, panda3d; print("Native GUI environment ready")'
+.venv/bin/python -c 'import PyQt6, panda3d, simplepbr; print("Native GUI environment ready")'

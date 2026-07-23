@@ -243,9 +243,8 @@ class RangeScene:
     def set_target_distance(self, distance_m: float) -> None:
         self.target_distance_m = distance_m
         self.target_root.setPos(0.0, distance_m, 0.0)
-        self.range_label.setText(f"PRACTICE RANGE  /  {distance_m:.0f} m") if hasattr(
-            self, "range_label"
-        ) else None
+        if hasattr(self, "range_label"):
+            self.range_label.setText(f"PRACTICE RANGE  /  {distance_m:.0f} m")
 
     def set_aim(self, elevation_deg: float, azimuth_deg: float) -> None:
         self.elevation_deg = max(-10.0, min(85.0, elevation_deg))

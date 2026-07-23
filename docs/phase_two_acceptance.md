@@ -2,6 +2,9 @@
 
 Date: 2026-07-23.
 
+Phase 2.1 supersedes the initial presentation findings below. See
+[`phase_2_1_acceptance.md`](phase_2_1_acceptance.md) for the asset-backed visual acceptance.
+
 ## Verified host
 
 - Linux/X11 (`xcb` Qt backend).
@@ -39,7 +42,7 @@ GUI-bridge configurations were byte-identical.
 
 - The embedded Panda3D window currently targets Linux/X11 or XWayland through Qt's `xcb` backend;
   native Wayland embedding is not implemented.
-- The range, arms, rifle silhouette, and targets are intentionally procedural low-poly geometry.
+- The initial procedural presentation was replaced in Phase 2.1; the upgraded result remains stylized rather than photoreal.
 - Python calls the C CLI in a worker process; direct shared-library bindings remain future work.
 - The target score uses linear interpolation at a rendered plane and is presentation feedback, not
   an inverse aiming solution.

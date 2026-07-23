@@ -1,6 +1,6 @@
 # Phase 2.1 Visual Upgrade Contract
 
-Status: accepted for implementation, 2026-07-23.
+Status: implemented and verified, 2026-07-23. See [`phase_2_1_acceptance.md`](phase_2_1_acceptance.md).
 
 ## Objective
 

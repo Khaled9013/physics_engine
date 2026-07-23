@@ -12,13 +12,14 @@ Phase One provides configurable projectile/launch data, constant gravity/density
 vector drag, Euler and RK4 integration, interpolated ground impact, deterministic CSV output,
 registries, debug logging, and CTest/Unity verification.
 
-Phase Two provides a local desktop window with:
+Phase Two and the Phase 2.1 visual upgrade provide a local desktop window with:
 
-- A GPU-rendered low-poly practice range with non-human geometric targets.
-- Procedural first-person arms and a fictional precision rifle.
-- Mouse aiming, a decorative scope, recoil, muzzle flash, tracer, and impact animation.
-- PyQt controls for numerical, launch, projectile, drag, atmosphere, wind, and gravity values.
-- Live time, range, drift, speed, hit/miss, and event telemetry.
+- An asset-backed outdoor practice range with local CC0 ground materials and depth dressing.
+- An authored first-person hand pose carrying a textured fictional precision rifle and optic.
+- Panda3D PBR tonemapping, shadows, smooth scope presentation, recoil, flash, tracer, impact, and
+  target reaction.
+- A focused quick-shot surface with collapsible advanced solver, projectile, and environment fields.
+- Live time, range, drift, speed, hit/miss, and optional session telemetry.
 - `QThreadPool` shot calculation so the UI and renderer remain responsive.
 
 The desktop application contains no browser, web view, HTTP server, or network listener. It is a
@@ -66,7 +67,8 @@ Unsafe floating-point flags such as `-ffast-math`, `-Ofast`, and `-ffinite-math-
 
 ## Run the native GUI
 
-The initial desktop port requires Linux/X11 or XWayland, Python 3.10+, and working OpenGL drivers.
+The desktop port requires Linux/X11 or XWayland, Python 3.10+, working OpenGL drivers, and the
+pinned PyQt6, Panda3D, and panda3d-simplepbr packages.
 Prepare an isolated project environment once:
 
 ```bash
@@ -83,9 +85,9 @@ Controls:
 
 - Click the 3D viewport to capture the mouse; press `Esc` to release it.
 - Move the mouse to aim.
-- Left-click or select **Fire** to run and animate a C-engine shot.
-- Right-click or select **Scope** to raise/lower the decorative scope.
-- Select **Reset** to clear the trajectory and target feedback.
+- Left-click or select **FIRE SHOT** to run and animate a C-engine shot.
+- Right-click or select **Toggle optic** to raise/lower the decorative scope.
+- Select **Reset range** to clear the trajectory and target feedback.
 
 The launch script builds the C CLI if it is missing. It uses `.venv/` only and defaults Qt to the
 `xcb` backend required by the embedded Panda3D X11 child window.
@@ -130,7 +132,8 @@ uses `+y` as forward.
 - `include/ballistics/`: public C API and extension interfaces
 - `src/`: core, equations, physics, integrators, output, registries, and Linux port
 - `apps/ballistic_cli/`: Linux CLI and file-backed byte sink
-- `apps/ballistics_gui/`: PyQt shell, worker bridge, procedural Panda3D range
+- `apps/ballistics_gui/`: PyQt shell, worker bridge, and modular Panda3D renderer
+- `assets/`: committed CC0 presentation assets and provenance
 - `tests/`: Unity C tests and Python GUI tests
 - `docs/phase_two_plan.md`: native GUI scope and acceptance contract
 - `docs/gui_architecture.md`: desktop module, rendering, and thread boundaries
@@ -144,12 +147,15 @@ See `docs/adding_an_equation.md`, `docs/adding_a_force_model.md`,
 
 ## Licensing note
 
-Repository source is MIT licensed. Panda3D is BSD licensed. PyQt6 is available under GPL-3.0 or a
+Repository source is MIT licensed. Third-party CC0 asset provenance is recorded in
+`assets/README.md`. Panda3D is BSD licensed. PyQt6 is available under GPL-3.0 or a
 commercial license; distributing a combined GUI build with the GPL edition requires compliance with
 its GPL terms. Organizations needing different distribution terms must obtain the appropriate PyQt
 commercial license.
+
 ## Known GUI limitations
 
-The initial embedding port uses Linux/X11 or XWayland, not native Wayland. Visuals are procedural
-low-poly geometry, and the Python application currently communicates with C through the CLI rather
-than direct shared-library bindings. See `docs/phase_two_acceptance.md` for the verified matrix.
+The embedding port uses Linux/X11 or XWayland, not native Wayland. The upgraded range remains
+stylized rather than photoreal, and the Python application currently communicates with C through the
+CLI rather than direct shared-library bindings. See `docs/phase_2_1_acceptance.md` for the verified
+visual-upgrade matrix.
