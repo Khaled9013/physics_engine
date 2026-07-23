@@ -30,6 +30,7 @@ ballistics_select_port(BALLISTICS_PORT_SOURCE)
 add_library(ballistics_core ${BALLISTICS_LIBRARY_TYPE}
     src/core/status.c
     src/debug/ballistics_debug.c
+    src/math/vector3.c
     ${BALLISTICS_PORT_SOURCE}
 )
 add_library(ballistics::core ALIAS ballistics_core)
@@ -46,6 +47,10 @@ target_include_directories(ballistics_core
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
 )
+if(UNIX)
+    target_link_libraries(ballistics_core PUBLIC m)
+endif()
+
 target_compile_definitions(ballistics_core
     PRIVATE
         $<$<BOOL:${BALLISTICS_BUILD_SHARED}>:BALLISTICS_BUILD_SHARED>

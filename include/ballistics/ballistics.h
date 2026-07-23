@@ -5,6 +5,7 @@
 #include "ballistics/debug/ballistics_debug.h"
 #include "ballistics/status.h"
 #include "ballistics/port/ballistics_port.h"
+#include "ballistics/math/vector3.h"
 #include "ballistics/types.h"
 
 #endif
