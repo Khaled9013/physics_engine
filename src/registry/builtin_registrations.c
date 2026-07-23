@@ -6,6 +6,7 @@
 #include "ballistics/models/constant_gravity_model.h"
 #include "ballistics/models/basic_drag_model.h"
 #include "ballistics/integrators/euler_integrator.h"
+#include "ballistics/integrators/rk4_integrator.h"
 
 BallisticsStatus ballistics_register_builtin_equations(BallisticsEquationRegistry *registry)
 {
@@ -69,10 +70,28 @@ BallisticsStatus ballistics_register_builtin_force_models(BallisticsForceModelRe
 
 BallisticsStatus ballistics_register_builtin_integrators(BallisticsIntegratorRegistry *registry)
 {
+    static const struct
+    {
+        const char *identifier;
+        BallisticsIntegratorFactory factory;
+    } registrations[] = {
+        {BALLISTICS_EULER_INTEGRATOR_ID, ballistics_euler_integrator_factory},
+        {BALLISTICS_RK4_INTEGRATOR_ID, ballistics_rk4_integrator_factory},
+    };
+    size_t index;
+
     if (registry == NULL)
     {
         return BALLISTICS_STATUS_INVALID_ARGUMENT;
     }
-    return ballistics_integrator_registry_register(
-        registry, BALLISTICS_EULER_INTEGRATOR_ID, ballistics_euler_integrator_factory);
+    for (index = 0U; index < sizeof(registrations) / sizeof(registrations[0]); ++index)
+    {
+        const BallisticsStatus status = ballistics_integrator_registry_register(
+            registry, registrations[index].identifier, registrations[index].factory);
+        if (status != BALLISTICS_STATUS_OK)
+        {
+            return status;
+        }
+    }
+    return BALLISTICS_STATUS_OK;
 }
