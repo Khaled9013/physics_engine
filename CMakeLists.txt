@@ -36,6 +36,8 @@ add_library(ballistics_core ${BALLISTICS_LIBRARY_TYPE}
     src/debug/ballistics_debug.c
     src/math/vector3.c
     src/interfaces/equation_interface.c
+    src/interfaces/environment_interface.c
+    src/physics/constant_environment_model.c
     src/equations/air_relative_velocity_equation.c
     src/equations/aerodynamic_drag_equation.c
     src/equations/acceleration_equation.c

@@ -11,6 +11,8 @@
 #include "ballistics/models/environment_state.h"
 #include "ballistics/models/launch_profile.h"
 #include "ballistics/interfaces/equation_interface.h"
+#include "ballistics/interfaces/environment_interface.h"
+#include "ballistics/models/constant_environment_model.h"
 #include "ballistics/equations/air_relative_velocity_equation.h"
 #include "ballistics/equations/aerodynamic_drag_equation.h"
 #include "ballistics/equations/acceleration_equation.h"
