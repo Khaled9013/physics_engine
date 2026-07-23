@@ -1,9 +1,8 @@
-# Ballistics Simulation Lab
+# Ballistics Simulation
 
-A modular virtual external-ballistics research environment. Phase One is a C17 point-mass
-simulation library and CLI. Phase Two adds a native Linux target-range visualization using PyQt6
-and Panda3D. It is entirely software-defined and has no connection to physical weapons, sensors, or
-live-fire hardware.
+A modular C17 virtual research simulator for three-dimensional point-mass projectile motion.
+Phase One provides the simulation library and CLI; Phase Two adds a native Linux visualization
+using PyQt6 and Panda3D.
 
 Coordinates are `+x` downrange, `+y` right, and `+z` upward. Core calculations use SI `double`.
 
