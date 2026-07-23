@@ -3,6 +3,7 @@
 #include "ballistics/equations/acceleration_equation.h"
 #include "ballistics/equations/aerodynamic_drag_equation.h"
 #include "ballistics/equations/air_relative_velocity_equation.h"
+#include "ballistics/models/constant_gravity_model.h"
 
 BallisticsStatus ballistics_register_builtin_equations(BallisticsEquationRegistry *registry)
 {
@@ -32,4 +33,15 @@ BallisticsStatus ballistics_register_builtin_equations(BallisticsEquationRegistr
         }
     }
     return BALLISTICS_STATUS_OK;
+}
+
+
+BallisticsStatus ballistics_register_builtin_force_models(BallisticsForceModelRegistry *registry)
+{
+    if (registry == NULL)
+    {
+        return BALLISTICS_STATUS_INVALID_ARGUMENT;
+    }
+    return ballistics_force_model_registry_register(
+        registry, BALLISTICS_CONSTANT_GRAVITY_MODEL_ID, ballistics_constant_gravity_model_factory);
 }
