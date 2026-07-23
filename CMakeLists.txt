@@ -43,6 +43,8 @@ add_library(ballistics_core ${BALLISTICS_LIBRARY_TYPE}
     src/interfaces/force_model_interface.c
     src/interfaces/integrator_interface.c
     src/interfaces/stop_condition_interface.c
+    src/interfaces/trajectory_writer_interface.c
+    src/output/csv_trajectory_writer.c
     src/stop_conditions/ground_stop_condition.c
     src/stop_conditions/maximum_time_stop_condition.c
     src/stop_conditions/maximum_distance_stop_condition.c

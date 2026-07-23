@@ -7,6 +7,7 @@
 #include "ballistics/models/basic_drag_model.h"
 #include "ballistics/integrators/euler_integrator.h"
 #include "ballistics/integrators/rk4_integrator.h"
+#include "ballistics/output/csv_trajectory_writer.h"
 
 BallisticsStatus ballistics_register_builtin_equations(BallisticsEquationRegistry *registry)
 {
@@ -94,4 +95,15 @@ BallisticsStatus ballistics_register_builtin_integrators(BallisticsIntegratorReg
         }
     }
     return BALLISTICS_STATUS_OK;
+}
+
+
+BallisticsStatus ballistics_register_builtin_writers(BallisticsWriterRegistry *registry)
+{
+    if (registry == NULL)
+    {
+        return BALLISTICS_STATUS_INVALID_ARGUMENT;
+    }
+    return ballistics_writer_registry_register(
+        registry, BALLISTICS_CSV_WRITER_ID, ballistics_csv_trajectory_writer_factory);
 }
