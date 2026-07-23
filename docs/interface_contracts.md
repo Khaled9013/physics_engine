@@ -179,3 +179,32 @@ The public port header declares exactly monotonic time, allocation, deallocation
 ## Thread-safety and ownership summary
 
 Pure vector/equation functions and const model calls are reentrant. Registries, simulations, results, writers, and debug reconfiguration are not concurrently mutable. The application destroys objects in reverse order. The core never owns a file or byte-sink context.
+
+
+## Exact Phase One typed configuration catalog
+
+| Type | Fields and validation | Factory default |
+|---|---|---|
+| `BallisticsConstantEnvironmentConfig` | non-negative finite `air_density_kgpm3`; finite `wind_velocity_mps` | no registry factory |
+| `BallisticsConstantGravityConfig` | finite `acceleration_mps2` | `[0,0,-9.80665]` for `NULL,0` |
+| `BallisticsBasicDragConfig` | non-negative finite `drag_coefficient` | none; exact config required |
+| `BallisticsEulerIntegratorConfig` | `maximum_state_count` in 1..64 | 64 for `NULL,0` |
+| `BallisticsRk4IntegratorConfig` | `maximum_state_count` in 1..64 | 64 for `NULL,0` |
+| `BallisticsGroundStopConfig` | finite `ground_height_m` | direct create only |
+| `BallisticsMaximumTimeStopConfig` | positive finite `maximum_time_s` | direct create only |
+| `BallisticsMaximumDistanceStopConfig` | positive finite `maximum_horizontal_distance_m` | direct create only |
+| `BallisticsInvalidStateStopConfig` | reserved byte, currently ignored | direct create only |
+| `BallisticsCsvWriterConfig` | copied sink descriptor with non-null `write` | none; exact config required |
+| `BallisticsSimulationConfig` | positive finite step/time/horizontal distance, finite ground, non-empty/resolvable integrator ID | not factory-created |
+
+Equation objects in Phase One are stateless: their factories accept exactly `NULL,0`. Projectile, launch, launcher metadata, projectile state, environment state, trajectory sample, stop evaluation/decision, byte sink, and the vtable/object structures shown above are ABI-visible value structures. Registry, dynamics, simulation, and result implementation structures remain opaque.
+
+## Concrete create/destroy ownership
+
+- Equation create functions return owned `BallisticsEquation *`; destroy with `ballistics_equation_destroy`.
+- Constant environment returns an owned `BallisticsEnvironmentModel *`; destroy with `ballistics_environment_destroy`.
+- Gravity and drag return owned semantic `BallisticsForceModel *`; destroy with `ballistics_force_model_destroy`.
+- Euler/RK4 return owned `BallisticsIntegrator *`; destroy with `ballistics_integrator_destroy`.
+- Each stop create returns owned `BallisticsStopCondition *`; destroy with `ballistics_stop_condition_destroy`.
+- CSV create returns owned `BallisticsTrajectoryWriter *` which borrows the copied sink/context; destroy with `ballistics_trajectory_writer_destroy`.
+- Each family registry, dynamics, simulation, and result uses its named create/destroy pair. Registries do not destroy registered or created implementations.

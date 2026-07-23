@@ -1,0 +1,7 @@
+add_executable(ballistics_basic_scenario basic_scenario.c)
+target_compile_features(ballistics_basic_scenario PRIVATE c_std_17)
+set_target_properties(ballistics_basic_scenario PROPERTIES C_EXTENSIONS OFF)
+target_link_libraries(ballistics_basic_scenario PRIVATE ballistics::core)
+ballistics_set_warnings(ballistics_basic_scenario)
+ballistics_enable_sanitizers(ballistics_basic_scenario)
+ballistics_enable_coverage(ballistics_basic_scenario)
