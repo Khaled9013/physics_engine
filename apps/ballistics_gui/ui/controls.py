@@ -78,6 +78,9 @@ class ScenarioControls(QWidget):
         form = QFormLayout(group)
         form.setHorizontalSpacing(12)
         form.setVerticalSpacing(9)
+        self.integrator = QComboBox()
+        self.integrator.addItems(["rk4.v1", "euler.v1"])
+        form.addRow("Integrator", self.integrator)
         self._add_field(
             form, "Target", "target_distance_m", 25.0, 1000.0, 150.0, 1, "m"
         )
@@ -103,9 +106,6 @@ class ScenarioControls(QWidget):
 
         numerical = QGroupBox("SOLVER")
         numerical_form = QFormLayout(numerical)
-        self.integrator = QComboBox()
-        self.integrator.addItems(["rk4.v1", "euler.v1"])
-        numerical_form.addRow("Integrator", self.integrator)
         self._add_field(
             numerical_form,
             "Time step",
