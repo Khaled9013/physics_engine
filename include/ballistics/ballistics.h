@@ -6,6 +6,10 @@
 #include "ballistics/status.h"
 #include "ballistics/port/ballistics_port.h"
 #include "ballistics/math/vector3.h"
+#include "ballistics/models/projectile.h"
+#include "ballistics/models/projectile_state.h"
+#include "ballistics/models/environment_state.h"
+#include "ballistics/models/launch_profile.h"
 #include "ballistics/types.h"
 
 #endif

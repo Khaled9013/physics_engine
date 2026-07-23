@@ -29,6 +29,10 @@ ballistics_select_port(BALLISTICS_PORT_SOURCE)
 
 add_library(ballistics_core ${BALLISTICS_LIBRARY_TYPE}
     src/core/status.c
+    src/core/projectile.c
+    src/core/projectile_state.c
+    src/core/environment_state.c
+    src/core/launch_profile.c
     src/debug/ballistics_debug.c
     src/math/vector3.c
     ${BALLISTICS_PORT_SOURCE}
