@@ -29,6 +29,9 @@ ballistics_select_port(BALLISTICS_PORT_SOURCE)
 
 add_library(ballistics_core ${BALLISTICS_LIBRARY_TYPE}
     src/core/status.c
+    src/core/simulation_config.c
+    src/core/simulation_result.c
+    src/core/simulation.c
     src/core/projectile.c
     src/core/projectile_state.c
     src/core/environment_state.c
@@ -39,6 +42,7 @@ add_library(ballistics_core ${BALLISTICS_LIBRARY_TYPE}
     src/interfaces/environment_interface.c
     src/interfaces/force_model_interface.c
     src/interfaces/integrator_interface.c
+    src/interfaces/stop_condition_interface.c
     src/integrators/euler_integrator.c
     src/integrators/rk4_integrator.c
     src/physics/constant_environment_model.c
