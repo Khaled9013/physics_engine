@@ -10,6 +10,10 @@
 #include "ballistics/models/projectile_state.h"
 #include "ballistics/models/environment_state.h"
 #include "ballistics/models/launch_profile.h"
+#include "ballistics/registry/equation_registry.h"
+#include "ballistics/registry/force_model_registry.h"
+#include "ballistics/registry/integrator_registry.h"
+#include "ballistics/registry/writer_registry.h"
 #include "ballistics/types.h"
 
 #endif
