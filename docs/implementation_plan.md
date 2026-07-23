@@ -44,3 +44,4 @@ A fresh-context QA agent receives only repository path and milestone. It perform
 - Stages 1–23: complete and committed.
 - Stages 24–25: complete; documentation, examples, fresh Debug/sanitizer, Release/static, and shared acceptance builds passed.
 - QA M1, M2, and M3: passed after documented repair loops.
+- QA M4: final clean acceptance passed with no defects.
