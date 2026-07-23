@@ -5,17 +5,14 @@
 
 BallisticsStatus ballistics_launch_state_validate(const BallisticsLaunchState *launch_state)
 {
-    double direction_magnitude;
-    BallisticsStatus status;
-
     if (launch_state == NULL || !ballistics_vector3_is_finite(&launch_state->initial_position_m) ||
         !ballistics_vector3_is_finite(&launch_state->direction) ||
         !isfinite(launch_state->initial_speed_mps) || launch_state->initial_speed_mps < 0.0)
     {
         return BALLISTICS_STATUS_INVALID_ARGUMENT;
     }
-    status = ballistics_vector3_magnitude(&launch_state->direction, &direction_magnitude);
-    if (status != BALLISTICS_STATUS_OK || direction_magnitude == 0.0)
+    if (launch_state->direction.x == 0.0 && launch_state->direction.y == 0.0 &&
+        launch_state->direction.z == 0.0)
     {
         return BALLISTICS_STATUS_INVALID_ARGUMENT;
     }
