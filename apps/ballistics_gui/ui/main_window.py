@@ -6,6 +6,7 @@ from datetime import datetime
 from pathlib import Path
 
 from PyQt6.QtCore import QThreadPool, Qt, pyqtSlot
+from PyQt6.QtGui import QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
     QFrame,
     QGridLayout,
@@ -18,10 +19,12 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from ..render.range_scene import DEFAULT_SENSITIVITY_SETTING, sensitivity_to_degrees
 from ..simulation.models import ShotResult
 from ..simulation.worker import SimulationWorker
 from .controls import ScenarioControls
 from .range_widget import RangeWidget
+from .settings_dialog import DISPLAY_MODE_FULLSCREEN, SettingsDialog
 
 
 class MainWindow(QMainWindow):
@@ -47,6 +50,7 @@ class MainWindow(QMainWindow):
         self.viewport.scope_changed.connect(self._scope_changed)
         self.viewport.renderer_ready.connect(self._renderer_ready)
         self.viewport.renderer_failed.connect(self._renderer_failed)
+        self.viewport.settings_requested.connect(self.open_settings)
         splitter.addWidget(self.viewport)
         splitter.addWidget(self._build_side_panel())
         splitter.setStretchFactor(0, 1)
@@ -54,6 +58,14 @@ class MainWindow(QMainWindow):
         splitter.setSizes([1110, 390])
         self.setCentralWidget(splitter)
         self.statusBar().showMessage("Initializing native GPU range…")
+
+        self.sensitivity_setting = DEFAULT_SENSITIVITY_SETTING
+        self._settings_dialog: SettingsDialog | None = None
+        self._windowed_size = (self.width(), self.height())
+        # Panda3D only receives the escape key while it holds the pointer. A window-level
+        # shortcut covers the rest of the time, so the same key always reaches settings.
+        self._settings_shortcut = QShortcut(QKeySequence(Qt.Key.Key_Escape), self)
+        self._settings_shortcut.activated.connect(self.open_settings)
 
     def _build_side_panel(self) -> QWidget:
         panel = QWidget()
@@ -218,6 +230,63 @@ class MainWindow(QMainWindow):
         self.viewport.reset_range()
         self.statusBar().showMessage("Range reset")
         self._log("Range reset; pending results will be ignored")
+
+    @pyqtSlot()
+    def open_settings(self) -> None:
+        """Raise the escape-key settings panel, or re-focus it if already open."""
+
+        if self._settings_dialog is not None:
+            self._settings_dialog.raise_()
+            self._settings_dialog.activateWindow()
+            return
+        self.viewport.release_aim()
+        dialog = SettingsDialog(
+            sensitivity=self.sensitivity_setting,
+            fullscreen=self.isFullScreen(),
+            window_size=self._windowed_size,
+            sensitivity_preview=sensitivity_to_degrees,
+            parent=self,
+        )
+        dialog.sensitivity_changed.connect(self.apply_sensitivity)
+        dialog.display_mode_changed.connect(self.apply_display_mode)
+        dialog.window_size_changed.connect(self.apply_window_size)
+        self._settings_dialog = dialog
+        try:
+            dialog.exec()
+        finally:
+            self._settings_dialog = None
+        self.statusBar().showMessage("Settings closed — click the viewport to capture aim")
+
+    @pyqtSlot(float)
+    def apply_sensitivity(self, setting: float) -> None:
+        self.sensitivity_setting = setting
+        self.viewport.set_sensitivity_setting(setting)
+        self._log(
+            f"Aim speed set to {setting:.0f} "
+            f"({sensitivity_to_degrees(setting):.4f} deg/count)"
+        )
+
+    @pyqtSlot(str)
+    def apply_display_mode(self, mode: str) -> None:
+        if mode == DISPLAY_MODE_FULLSCREEN:
+            if not self.isFullScreen():
+                self._windowed_size = (self.width(), self.height())
+            self.showFullScreen()
+        else:
+            self.showNormal()
+            self.resize(*self._windowed_size)
+        self._log(f"Display mode set to {mode.lower()}")
+
+    @pyqtSlot(int, int)
+    def apply_window_size(self, width: int, height: int) -> None:
+        self._windowed_size = (width, height)
+        if self.isFullScreen():
+            return
+        # A preset may exceed the current minimum on a small display; Qt clamps it, and the
+        # stored preference is kept so the choice survives a later mode change.
+        self.showNormal()
+        self.resize(width, height)
+        self._log(f"Window size set to {width} x {height}")
 
     @pyqtSlot(bool)
     def _set_log_visible(self, visible: bool) -> None:

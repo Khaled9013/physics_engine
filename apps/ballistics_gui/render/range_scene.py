@@ -47,6 +47,27 @@ TARGET_CENTRE_HEIGHT_M = 2.0
 TARGET_FACE_HALF_M = 0.85
 IMPACT_DECAL_COUNT = 12
 
+# Aim speed is exposed to the user as a 0-100 setting rather than as degrees per count. The
+# setting maps geometrically onto the range below, so each step changes speed by a constant
+# proportion; a linear map would crowd every usable slow value into the bottom few steps.
+SENSITIVITY_SETTING_MIN = 0.0
+SENSITIVITY_SETTING_MAX = 100.0
+SENSITIVITY_DEGREES_MIN = 0.0035
+SENSITIVITY_DEGREES_MAX = 0.150
+DEFAULT_SENSITIVITY_SETTING = 35.0
+# Behind the optic the same hand movement must cover far less angle, or the magnified view is
+# unusable. This is the ratio the fixed hip and scope speeds previously used.
+SCOPE_SENSITIVITY_RATIO = 1.0 / 3.0
+
+
+def sensitivity_to_degrees(setting: float) -> float:
+    """Map the 0-100 aim-speed setting onto degrees of aim per mouse count."""
+
+    clamped = max(SENSITIVITY_SETTING_MIN, min(SENSITIVITY_SETTING_MAX, setting))
+    fraction = clamped / SENSITIVITY_SETTING_MAX
+    ratio = SENSITIVITY_DEGREES_MAX / SENSITIVITY_DEGREES_MIN
+    return SENSITIVITY_DEGREES_MIN * (ratio**fraction)
+
 
 class RangeScene:
     """Own all Panda3D nodes and animation state for one embedded viewport."""
@@ -57,11 +78,14 @@ class RangeScene:
         on_fire: Callable[[], None],
         on_aim_changed: Callable[[float, float], None],
         on_scope_changed: Callable[[bool], None],
+        on_settings_requested: Callable[[], None] | None = None,
     ) -> None:
         self.base = base
         self.on_fire = on_fire
         self.on_aim_changed = on_aim_changed
         self.on_scope_changed = on_scope_changed
+        self.on_settings_requested = on_settings_requested
+        self.sensitivity_setting = DEFAULT_SENSITIVITY_SETTING
         self.clock = ClockObject.getGlobalClock()
         self.azimuth_deg = 0.0
         self.elevation_deg = 0.2
@@ -216,7 +240,7 @@ class RangeScene:
             mayChange=True,
         )
         self.instructions = OnscreenText(
-            text="CLICK TO AIM     LMB FIRE     RMB OPTIC     ESC RELEASE",
+            text="CLICK TO AIM     LMB FIRE     RMB OPTIC     ESC SETTINGS",
             pos=(0.0, -0.92),
             scale=0.034,
             fg=(0.92, 0.94, 0.93, 0.9),
@@ -228,7 +252,19 @@ class RangeScene:
     def _bind_input(self) -> None:
         self.base.accept("mouse1", self._mouse_fire)
         self.base.accept("mouse3", self._mouse_scope)
-        self.base.accept("escape", self.release_mouse)
+        self.base.accept("escape", self._escape)
+
+    def _escape(self) -> None:
+        """Release aim and hand control back to the shell, which opens settings."""
+
+        self.release_mouse()
+        if self.on_settings_requested is not None:
+            self.on_settings_requested()
+
+    def set_sensitivity_setting(self, setting: float) -> None:
+        self.sensitivity_setting = max(
+            SENSITIVITY_SETTING_MIN, min(SENSITIVITY_SETTING_MAX, setting)
+        )
 
     def _mouse_fire(self) -> None:
         if not self.mouse_captured:
@@ -243,7 +279,7 @@ class RangeScene:
 
     def capture_mouse(self) -> None:
         self.mouse_captured = True
-        self.instructions.setText("AIM ACTIVE     LMB FIRE     RMB OPTIC     ESC RELEASE")
+        self.instructions.setText("AIM ACTIVE     LMB FIRE     RMB OPTIC     ESC SETTINGS")
         properties = self.base.win.getProperties()
         self.base.win.movePointer(
             0, properties.getXSize() // 2, properties.getYSize() // 2
@@ -252,7 +288,7 @@ class RangeScene:
     def release_mouse(self) -> None:
         self.mouse_captured = False
         self.instructions.setText(
-            "CLICK TO AIM     LMB FIRE     RMB OPTIC     ESC RELEASE"
+            "CLICK TO AIM     LMB FIRE     RMB OPTIC     ESC SETTINGS"
         )
 
     def toggle_scope(self) -> None:
@@ -393,7 +429,9 @@ class RangeScene:
         delta_y = pointer.getY() - center_y
         if delta_x == 0 and delta_y == 0:
             return
-        sensitivity = 0.016 if self.scope_enabled else 0.048
+        sensitivity = sensitivity_to_degrees(self.sensitivity_setting)
+        if self.scope_enabled:
+            sensitivity *= SCOPE_SENSITIVITY_RATIO
         self.azimuth_deg = max(
             -50.0, min(50.0, self.azimuth_deg + delta_x * sensitivity)
         )

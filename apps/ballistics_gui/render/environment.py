@@ -19,10 +19,15 @@ from .procedural import (
     add_sphere,
     add_textured_card,
     make_canopy_texture,
+    make_contact_shadow_texture,
     make_grass_tuft_texture,
     make_target_face_texture,
 )
-from .terrain import build_terrain
+from .terrain import build_terrain, lane_shading
+
+
+# Two canopy cut-outs, alternated per tree, so a row of trees is not one silhouette repeated.
+CANOPY_VARIANT_SEEDS = (0x5EED_0002, 0x5EED_0012)
 
 
 class RangeEnvironment:
@@ -34,8 +39,11 @@ class RangeEnvironment:
         self.assets = assets
         self.root = parent.attachNewNode("range-environment")
         self.target_face_texture = make_target_face_texture()
-        self._canopy_texture = make_canopy_texture()
+        self._canopy_textures = tuple(
+            make_canopy_texture(seed=seed) for seed in CANOPY_VARIANT_SEEDS
+        )
         self._tuft_texture = make_grass_tuft_texture()
+        self._contact_shadow_texture = make_contact_shadow_texture()
         self._build_ground()
         self._build_lane()
         self._build_firing_line()
@@ -72,6 +80,7 @@ class RangeEnvironment:
             tile_size_m=layout.LANE_TILE_SIZE_M,
             amplitude=0.0,
             y_bias=1.35,
+            shading=lane_shading,
         )
         apply_texture_set(
             loader, lane, "gravel-range-lane", self.assets.gravel,
@@ -103,10 +112,24 @@ class RangeEnvironment:
                 loader, ridge_root, "distant-ridge", ridge.position, ridge.scale, ridge.color
             )
 
+    def _add_contact_shadow(self, parent: NodePath, radius: float) -> NodePath:
+        """Lay a soft dark patch on the ground so an object does not appear to hover."""
+
+        patch = add_textured_card(
+            parent, "contact-shadow", (-radius, radius, -radius, radius), self._contact_shadow_texture
+        )
+        patch.setP(-90.0)
+        patch.setZ(0.02)
+        patch.setTransparency(TransparencyAttrib.MAlpha)
+        patch.setLightOff(1)
+        patch.setDepthWrite(False)
+        patch.setBin("transparent", 10)
+        return patch
+
     def _build_vegetation(self) -> None:
         tree_root = self.root.attachNewNode("range-vegetation")
-        for tree in layout.TREES:
-            self._add_tree(tree_root, tree)
+        for index, tree in enumerate(layout.TREES):
+            self._add_tree(tree_root, tree, index)
         tuft_root = self.root.attachNewNode("ground-clutter")
         # One prototype instanced per placement. Building a fresh pair of cards for every
         # tuft dominated scene construction, and the geometry is identical anyway; scale and
@@ -126,12 +149,13 @@ class RangeEnvironment:
             placement.setScale(scale)
             prototype.instanceTo(placement)
 
-    def _add_tree(self, parent: NodePath, tree: layout.TreePlacement) -> None:
+    def _add_tree(self, parent: NodePath, tree: layout.TreePlacement, index: int) -> None:
         root = parent.attachNewNode("range-tree")
         root.setPos(tree.lateral, tree.distance, 0.0)
-        root.setR(tree.lean_deg)
+        # The lean is applied to the trunk rather than the whole tree, so the contact shadow
+        # stays flat on the ground instead of tilting with it.
         trunk_height = 2.6 * tree.scale
-        add_box(
+        trunk = add_box(
             self.base.loader,
             root,
             "tree-trunk",
@@ -139,14 +163,21 @@ class RangeEnvironment:
             (0.16 * tree.scale, 0.16 * tree.scale, trunk_height * 0.5),
             (0.19, 0.15, 0.11, 1.0),
         )
+        trunk.setR(tree.lean_deg)
         canopy = add_cross_billboard(
             root,
             "tree-canopy",
-            self._canopy_texture,
+            self._canopy_textures[index % len(self._canopy_textures)],
             5.4 * tree.scale,
             5.0 * tree.scale,
         )
         canopy.setZ(trunk_height * 0.72)
+        canopy.setR(tree.lean_deg)
+        # A small deterministic tint spread stops a row of trees reading as one repeated
+        # object, which is the clearest tell that vegetation is instanced.
+        tint = 0.86 + ((index * 0.37) % 1.0) * 0.30
+        canopy.setColorScale(tint, tint * (0.94 + (index % 3) * 0.04), tint * 0.92, 1.0)
+        self._add_contact_shadow(root, 2.4 * tree.scale)
 
     def _build_background_bays(self) -> None:
         loader = self.base.loader

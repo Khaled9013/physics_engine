@@ -145,6 +145,34 @@ QStatusBar {
     border-top: 1px solid #202b31;
     font-size: 11px;
 }
+QDialog#settingsDialog {
+    background: #0d1418;
+    border: 1px solid #2a373f;
+}
+QSlider#sensitivitySlider::groove:horizontal {
+    height: 5px;
+    background: #1b262c;
+    border: 1px solid #2c3a42;
+    border-radius: 3px;
+}
+QSlider#sensitivitySlider::sub-page:horizontal {
+    height: 5px;
+    background: #cf9e50;
+    border: 1px solid #b98b41;
+    border-radius: 3px;
+}
+QSlider#sensitivitySlider::handle:horizontal {
+    width: 15px;
+    height: 15px;
+    margin: -6px 0;
+    background: #e6ecef;
+    border: 1px solid #7f8f97;
+    border-radius: 8px;
+}
+QSlider#sensitivitySlider::handle:horizontal:hover {
+    background: #ffffff;
+    border-color: #cf9e50;
+}
 QScrollBar:vertical {
     background: transparent;
     width: 8px;

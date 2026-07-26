@@ -46,8 +46,41 @@ def _terrain_format() -> GeomVertexFormat:
     array.addColumn(InternalName.getNormal(), 3, Geom.NTFloat32, Geom.CNormal)
     array.addColumn(InternalName.getTangent(), 3, Geom.NTFloat32, Geom.CVector)
     array.addColumn(InternalName.getBinormal(), 3, Geom.NTFloat32, Geom.CVector)
+    array.addColumn(InternalName.getColor(), 4, Geom.NTFloat32, Geom.CColor)
     array.addColumn(InternalName.getTexcoord(), 2, Geom.NTFloat32, Geom.CTexcoord)
     return GeomVertexFormat.registerFormat(GeomVertexFormat(array))
+
+
+def macro_shading(x: float, y: float) -> tuple[float, float, float]:
+    """Return large-scale ground colour variation.
+
+    A 1 k texture tiled across a field repeats visibly no matter how it is filtered, and
+    `simplepbr` offers only one texture coordinate set, so a second blended material is not
+    available. `simplepbr` does multiply vertex colour into base colour, so low-frequency
+    variation written per vertex breaks the stamp for free: patches drift between drier and
+    greener without any extra draw call or texture lookup.
+    """
+
+    broad = (
+        math.sin(x * 0.0087 + 0.6) * math.cos(y * 0.0054 - 1.2) * 0.5
+        + math.sin((x * 0.6 + y) * 0.0031 + 2.4) * 0.5
+    )
+    fine = math.sin(x * 0.041 - 0.8) * math.cos(y * 0.037 + 1.9) * 0.5
+    value = 1.0 + broad * 0.34 + fine * 0.09
+    # Drier patches lose more green than red, which is how sun-bleached grass actually shifts.
+    green_bias = 1.0 + broad * 0.11
+    return (value, value * green_bias, value * (1.0 - broad * 0.08))
+
+
+def lane_shading(x: float, y: float) -> tuple[float, float, float]:
+    """Return gravel wear: darker compacted edges and a lightly polished centre."""
+
+    from_centre = abs(x) / 6.4
+    edge = 1.0 - _smoothstep(0.55, 1.0, from_centre) * 0.28
+    traffic = 1.0 + math.exp(-((x / 1.9) ** 2)) * 0.06
+    settle = 1.0 + math.sin(y * 0.021 + 0.4) * 0.035
+    value = edge * traffic * settle
+    return (value, value * 0.995, value * 0.985)
 
 
 def _smoothstep(edge0: float, edge1: float, value: float) -> float:
@@ -121,6 +154,7 @@ def build_terrain(
     tile_size_m: float,
     amplitude: float = 1.0,
     y_bias: float = 1.0,
+    shading=macro_shading,
 ) -> NodePath:
     """Generate one ground mesh and attach it under ``parent``.
 
@@ -141,6 +175,7 @@ def build_terrain(
     normal = GeomVertexWriter(vertex_data, "normal")
     tangent = GeomVertexWriter(vertex_data, "tangent")
     binormal = GeomVertexWriter(vertex_data, "binormal")
+    color = GeomVertexWriter(vertex_data, "color")
     texcoord = GeomVertexWriter(vertex_data, "texcoord")
 
     for y in ys:
@@ -153,6 +188,7 @@ def build_terrain(
             normal.addData3(*surface_normal)
             tangent.addData3(*surface_tangent)
             binormal.addData3(*surface_binormal)
+            color.addData4(*shading(x, y), 1.0)
             texcoord.addData2(x / tile_size_m, y / tile_size_m)
 
     triangles = GeomTriangles(Geom.UHStatic)

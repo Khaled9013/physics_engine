@@ -83,7 +83,7 @@ FAR_FIELD = TerrainBand(
     tile_size_m=44.0,
     amplitude=2.6,
     y_bias=1.9,
-    tint=(1.10, 1.16, 1.00, 1.0),
+    tint=(0.90, 0.93, 0.84, 1.0),
 )
 
 LANE_HALF_WIDTH_M = 6.4
@@ -233,16 +233,16 @@ def grass_tufts() -> tuple[tuple[float, float, float, float], ...]:
     """Return ``(x, y, scale, heading)`` for deterministic near-field grass tufts."""
 
     tufts = []
-    for index in range(150):
+    for index in range(300):
         # A low-discrepancy pair keeps the scatter even without a random generator, so the
         # arrangement is identical on every launch.
         u = (index * 0.7548776662) % 1.0
         v = (index * 0.5698402909) % 1.0
-        x = (u - 0.5) * 74.0
-        y = -12.0 + v * 96.0
+        x = (u - 0.5) * 150.0
+        y = -14.0 + v * v * 260.0
         if abs(x) < 7.2 and -8.0 < y < 6.0:
             continue
-        scale = 0.55 + ((index * 0.3819660113) % 1.0) * 0.75
+        scale = (0.55 + ((index * 0.3819660113) % 1.0) * 0.75) * (1.0 + max(0.0, y) / 90.0)
         heading = ((index * 0.6180339887) % 1.0) * 360.0
         tufts.append((x, y, scale, heading))
     return tuple(tufts)

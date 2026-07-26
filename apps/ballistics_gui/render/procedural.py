@@ -153,38 +153,82 @@ def make_grass_tuft_texture(size: int = 128) -> Texture:
     return _alpha_texture("grass-tuft", image)
 
 
-def make_canopy_texture(size: int = 256) -> Texture:
-    """Generate a cut-out foliage mass for distant tree billboards."""
+def make_canopy_texture(size: int = 256, seed: int = 0x5EED_0002) -> Texture:
+    """Generate a cut-out foliage mass for tree billboards.
+
+    A canopy drawn as one solid mass reads as a cartoon blob. This grows clusters along a few
+    branch lines instead, leaves gaps for sky to pass through, and shades each cluster by how
+    exposed it is, so the silhouette is ragged and the interior has depth.
+    """
 
     image = PNMImage(size, size, 4)
     image.fill(0.0, 0.0, 0.0)
     image.alphaFill(0.0)
-    generator = _Deterministic(0x5EED_0002)
-    centre = size * 0.5
-    for _ in range(120):
-        blob_x = generator.between(0.12, 0.88) * size
-        blob_y = generator.between(0.06, 0.78) * size
-        radius = generator.between(0.045, 0.115) * size
-        shade = generator.between(0.45, 1.0)
-        # Fade clusters that stray from the centre so the silhouette stays organic.
-        falloff = 1.0 - min(1.0, math.hypot(blob_x - centre, blob_y - centre * 0.85) / (size * 0.52))
-        if falloff <= 0.05:
-            continue
-        for y in range(max(0, int(blob_y - radius)), min(size, int(blob_y + radius) + 1)):
-            for x in range(max(0, int(blob_x - radius)), min(size, int(blob_x + radius) + 1)):
-                distance = math.hypot(x - blob_x, y - blob_y)
-                if distance > radius:
-                    continue
-                depth = 1.0 - (y / size) * 0.45
-                image.setXelA(
-                    x,
-                    y,
-                    (0.075 + 0.070 * shade) * depth,
-                    (0.115 + 0.130 * shade) * depth,
-                    (0.055 + 0.055 * shade) * depth,
-                    1.0,
-                )
+    generator = _Deterministic(seed)
+    centre_x = size * 0.5
+    crown_y = size * 0.42
+
+    # Branch lines radiate from the trunk head; clusters are grown along them.
+    branches = []
+    for index in range(11):
+        angle = math.pi * (0.10 + 0.80 * (index / 10.0)) + generator.between(-0.14, 0.14)
+        length = generator.between(0.26, 0.44) * size
+        branches.append((angle, length))
+
+    for angle, length in branches:
+        steps = int(length / 3.2)
+        for step in range(steps):
+            travel = (step / max(1, steps - 1)) * length
+            spread = 0.16 + 0.84 * (travel / length)
+            blob_x = centre_x + math.cos(angle) * travel + generator.between(-8.0, 8.0)
+            blob_y = size - 1 - (crown_y * 0.35 + math.sin(angle) * travel) + generator.between(-8.0, 8.0)
+            radius = generator.between(0.048, 0.100) * size * (1.20 - spread * 0.38)
+            # Leave real holes: skipping clusters is what lets sky through the crown.
+            if generator.next_float() < 0.13:
+                continue
+            shade = generator.between(0.42, 1.0)
+            for y in range(max(0, int(blob_y - radius)), min(size, int(blob_y + radius) + 1)):
+                for x in range(max(0, int(blob_x - radius)), min(size, int(blob_x + radius) + 1)):
+                    distance = math.hypot(x - blob_x, y - blob_y)
+                    if distance > radius:
+                        continue
+                    # Ragged rim rather than a clean circle.
+                    if distance > radius * 0.74 and generator.next_float() < 0.26:
+                        continue
+                    # Lower and inner foliage sits in its own shadow.
+                    depth = 0.55 + 0.45 * (1.0 - y / size)
+                    lift = 1.0 - (distance / radius) * 0.25
+                    value = shade * depth * lift
+                    image.setXelA(
+                        x,
+                        y,
+                        (0.055 + 0.055 * value),
+                        (0.080 + 0.115 * value),
+                        (0.040 + 0.045 * value),
+                        1.0,
+                    )
     return _alpha_texture("tree-canopy", image)
+
+
+def make_contact_shadow_texture(size: int = 96) -> Texture:
+    """Generate a soft dark disc used as an ambient-occlusion patch under objects.
+
+    The sun's shadow map resolves cast shadows, but it cannot express the darkening right
+    where an object meets the ground. Without it, trees and posts appear to hover.
+    """
+
+    image = PNMImage(size, size, 4)
+    centre = (size - 1) * 0.5
+    radius = size * 0.5
+    for y in range(size):
+        for x in range(size):
+            distance = math.hypot(x - centre, y - centre) / radius
+            if distance >= 1.0:
+                image.setXelA(x, y, 0.0, 0.0, 0.0, 0.0)
+                continue
+            falloff = (1.0 - distance) ** 2.1
+            image.setXelA(x, y, 0.02, 0.022, 0.018, falloff * 0.62)
+    return _alpha_texture("contact-shadow", image)
 
 
 def make_target_face_texture(size: int = 512) -> Texture:

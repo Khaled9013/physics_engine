@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import QFrame
 from panda3d.core import NativeWindowHandle, WindowProperties, loadPrcFileData
 
 from ..simulation.models import ShotResult
-from ..render.range_scene import RangeScene
+from ..render.range_scene import DEFAULT_SENSITIVITY_SETTING, RangeScene
 from ..render.scoring import TargetScore
 
 
@@ -19,6 +19,7 @@ class RangeWidget(QFrame):
     scope_changed = pyqtSignal(bool)
     renderer_ready = pyqtSignal()
     renderer_failed = pyqtSignal(str)
+    settings_requested = pyqtSignal()
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -56,6 +57,7 @@ class RangeWidget(QFrame):
                 self.fire_requested.emit,
                 self.aim_changed.emit,
                 self.scope_changed.emit,
+                self.settings_requested.emit,
             )
             self.render_timer.start()
             self.renderer_ready.emit()
@@ -82,6 +84,21 @@ class RangeWidget(QFrame):
     def toggle_scope(self) -> None:
         if self.scene is not None:
             self.scene.toggle_scope()
+
+    def set_sensitivity_setting(self, setting: float) -> None:
+        if self.scene is not None:
+            self.scene.set_sensitivity_setting(setting)
+
+    def sensitivity_setting(self) -> float:
+        if self.scene is None:
+            return DEFAULT_SENSITIVITY_SETTING
+        return self.scene.sensitivity_setting
+
+    def release_aim(self) -> None:
+        """Hand pointer control back to the desktop without opening anything."""
+
+        if self.scene is not None:
+            self.scene.release_mouse()
 
     def play_shot(self, result: ShotResult) -> TargetScore | None:
         if self.scene is None:
