@@ -47,11 +47,50 @@ preserved here for provenance; the application presents only a fictional trainin
 
 - Sparse Grass: https://polyhaven.com/a/sparse_grass
 - Gravel Floor 02: https://polyhaven.com/a/gravel_floor_02
+- Aerial Grass Rock: https://polyhaven.com/a/aerial_grass_rock
 - Publisher license statement: https://docs.polyhaven.com/en/faq
 - License: CC0.
-- Files are official 1K diffuse JPG downloads.
-- Sparse Grass MD5: `5d0aba796e1b5882555161c16b10ee9d`
-- Gravel Floor 02 MD5: `9e420814367b8ee7a25bcfea10ff4b08`
+- Files are official 1K JPG downloads, unmodified.
+- The `arm` maps pack ambient occlusion, roughness, and metalness into the red, green, and
+  blue channels. That is the layout `simplepbr` samples from `p3d_TextureMetalRoughness`, so
+  they are bound directly with no repacking.
+- The `nor_gl` maps are OpenGL-convention tangent-space normals, matching Panda3D.
+
+| File | MD5 |
+| --- | --- |
+| `sparse_grass_diff_1k.jpg` | `5d0aba796e1b5882555161c16b10ee9d` |
+| `sparse_grass_nor_gl_1k.jpg` | `3307e6ce47413c6b4e85885d4b8ae932` |
+| `sparse_grass_arm_1k.jpg` | `e14c82e03d13fb472315d74a28196c89` |
+| `gravel_floor_02_diff_1k.jpg` | `9e420814367b8ee7a25bcfea10ff4b08` |
+| `gravel_floor_02_nor_gl_1k.jpg` | `ed3da750848a3e05faff98bc5b08c491` |
+| `gravel_floor_02_arm_1k.jpg` | `985dce4fb099a723dc083286d2ed757a` |
+| `aerial_grass_rock_diff_1k.jpg` | `e920ce36afd0abff000b8366d3d768d3` |
+| `aerial_grass_rock_nor_gl_1k.jpg` | `c8aa4c4f09b113cc7edef89ddeaccad9` |
+| `aerial_grass_rock_arm_1k.jpg` | `1f37fdb9b46b7fe34932ed9aa77df0bf` |
+
+## Poly Haven sky
+
+- Kloofendal Overcast Puresky: https://polyhaven.com/a/kloofendal_overcast_puresky
+- Publisher license statement: https://docs.polyhaven.com/en/faq
+- License: CC0.
+- Source: the publisher's tonemapped equirectangular JPG, 8192x4096.
+- Source MD5: `61b14cf4deed54ca8bd1a0c3314f8a21`
+- The tonemapped JPG is used rather than the HDR original so no high-dynamic-range decoder
+  is needed at conversion time and no extra dependency enters the toolchain.
+- The 16.9 MB source panorama is not committed; it is far larger than everything derived
+  from it, and the URL and checksum above reproduce it exactly.
+- Runtime conversion: `scripts/prepare_sky_texture.py`, which uses Panda3D's own `PNMImage`
+  and therefore needs nothing beyond the existing GUI requirements. It writes:
+  - `runtime/overcast_sky_2k.jpg`, a 2048x1024 panorama for the visible sky dome.
+  - `runtime/overcast_sky_cube_{0..5}.jpg`, 256x256 cube faces projected from the panorama
+    and consumed by `simplepbr` for image-based lighting.
+- Regenerate both products with:
+
+  ```
+  .venv/bin/python scripts/prepare_sky_texture.py \
+      <source.jpg> assets/third_party/poly_haven_sky/runtime/overcast_sky_2k.jpg \
+      --cube-destination assets/third_party/poly_haven_sky/runtime/overcast_sky_cube_#.jpg
+  ```
 
 ## Runtime policy
 

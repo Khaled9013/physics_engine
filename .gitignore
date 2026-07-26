@@ -11,3 +11,7 @@ trajectory.csv
 .venv/
 __pycache__/
 *.py[cod]
+
+# Sky source panorama: 16.9 MB and far larger than everything derived from it.
+# assets/README.md records its URL and checksum so it can be reproduced exactly.
+/assets/third_party/poly_haven_sky/source/
