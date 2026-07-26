@@ -30,6 +30,17 @@ presentation, input, and trajectory playback.
 `ui/range_widget.py` owns the native X11 child used by Panda3D. A Qt timer advances Panda3D's task
 manager inside the Qt event loop. Resize and input events are forwarded explicitly.
 
+`ui/settings_dialog.py` is the escape-key panel: display mode, window size, and aim speed. It holds
+no state of its own and emits a signal per control; `MainWindow` owns the values and applies them.
+Escape reaches it by two routes, because Panda3D only receives the key while it holds the pointer —
+the scene forwards its own escape binding, and a window-level shortcut covers every other case.
+Both release aim first, so the pointer is usable when the panel appears.
+
+Aim speed is exposed as a 0-100 setting rather than as degrees per mouse count, and maps onto that
+range geometrically so each step changes speed by a constant proportion. A linear map would crowd
+every usable slow value into the bottom few steps. The optic keeps a fixed fraction of the hip
+speed, because the same hand movement must cover far less angle through a magnified view.
+
 ## Rendering design
 
 The world uses Panda3D plus `panda3d-simplepbr` for tonemapping, normal-map support, shadows, and

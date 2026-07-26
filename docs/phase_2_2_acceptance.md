@@ -22,6 +22,11 @@ the Phase One C contracts and the Phase Two thread boundary.
   bundled arms to the detailed rifle instead of to the proxy weapon they were authored around.
 - The target is a printed face on flat geometry, legible in the hip view and centred under the
   optic, with accumulating impact decals.
+- Ground carries large-scale colour variation written per vertex, and the lane carries compacted
+  edges and a worn centre, so neither reads as a single tiled stamp.
+- Tree canopies are grown along branch lines with real gaps rather than drawn as solid masses, and
+  objects sit on soft contact-shadow patches so they no longer appear to hover.
+- Escape opens a settings panel carrying display mode, window size, and an aim-speed slider.
 - Every runtime model and texture is committed. Publisher, license, source URL, checksum,
   conversion, and local treatment are recorded in `assets/README.md`.
 - The GUI performs no runtime network access.
@@ -44,6 +49,16 @@ capture on a fixed delay from launch, and the richer scene takes longer to build
 allowed, so it captured blank frames. The sequence is now chained off the renderer's ready signal,
 with a timeout that fails loudly instead of capturing nothing.
 
+## Settings panel
+
+Escape raises a modal panel with display mode, window size, and a 0-100 aim-speed slider. Every
+control applies immediately, because aim speed can only be judged by moving the view.
+
+The previous fixed hip speed of 0.048 degrees per mouse count was reported as too fast. Aim speed
+is now user-controlled across 0.0035 to 0.150 degrees per count, mapped geometrically so each step
+changes speed by a constant proportion. The default of 35 resolves to 0.0130 degrees per count,
+roughly a quarter of the previous speed. Settings apply for the session and are not persisted.
+
 ## Verified host
 
 - Linux/X11 using Qt's `xcb` backend and Panda3D's `glxGraphicsPipe`.
@@ -56,9 +71,9 @@ with a timeout that fails loudly instead of capturing nothing.
 
 ## Test results
 
-- Python GUI, bridge, worker, coordinate, scoring, asset, layout, and terrain tests: 33/33 passed,
-  up from 17 in Phase 2.1. The new coverage is 15 layout and terrain-relief cases plus a sky
-  cube-face pattern case.
+- Python GUI, bridge, worker, coordinate, scoring, asset, layout, terrain, and settings tests:
+  43/43 passed, up from 17 in Phase 2.1. The new coverage is 15 layout and terrain-relief cases, a
+  sky cube-face pattern case, and 10 aim-speed and settings-presentation cases.
 - CTest unit, integration, and CLI-option targets: 3/3 passed.
 - ASan/UBSan clean rebuild in `build-sanitizers/`: 3/3 CTest targets passed with no sanitizer
   report.

@@ -44,6 +44,10 @@ flattened the image:
 - Replace the target's stack of flattened spheres with a printed face on flat geometry, and add
   accumulating impact decals.
 - Separate range content from range construction so the layout can be tested without a GPU.
+- Break up ground tiling with per-vertex colour variation, which `simplepbr` multiplies into base
+  colour and which needs neither a second texture coordinate set nor an extra draw call.
+- Grow tree canopies along branch lines with real gaps, and ground objects with contact shadows.
+- Add an escape-key settings panel for display mode, window size, and aim speed.
 
 ## Architecture
 
@@ -88,4 +92,6 @@ Unchanged from Phase 2.1 and restated because this phase touches presentation on
 - Scene construction never causes the automated smoke test to capture a blank frame.
 - All prior C and Python tests pass, plus new headless tests covering layout and terrain relief.
 - A native GPU smoke test captures and inspects hip and scoped frames.
+- Escape opens the settings panel from both the captured-pointer and windowed states, releasing
+  aim first, and the aim-speed slider changes view speed while the panel is open.
 - `rg` confirms the GUI still contains no network client or server implementation.
