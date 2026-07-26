@@ -11,6 +11,21 @@ scene without containing physics or rendering implementation.
 
 `simulation/` contains immutable scenario/result models, validation, CLI argument construction,
 CSV parsing, and a `QRunnable` worker. It has no Panda3D dependency and can be tested headlessly.
+`simulation/projectiles.py` loads and validates the committed presets in `data/projectiles.json`,
+resolved relative to the package rather than the working directory.
+
+Two conventions in the controls exist because their absence was a defect. The wind field is stored
+as a headwind and negated when the scenario is built, because a headwind blows toward the shooter
+and is therefore the negative downrange component; passing it through unchanged made a headwind
+lengthen the shot. Reference area is derived from diameter, because diameter previously reached the
+solver's validator but no force calculation, so the two could disagree indefinitely while only the
+area had any effect. The area stays editable for a non-circular cross-section, and only the area
+reaches the drag model.
+
+Preset drag coefficients are single representative values. The solver applies a constant coefficient
+and does not model the Mach dependence of real drag, so each one is fitted to reproduce a published
+remaining velocity at a stated distance. Both figures are stored in the preset file so every
+coefficient can be re-derived, and a test asserts the fit still holds.
 
 `render/assets.py` resolves committed visual assets from the repository, validates required files,
 and applies consistent texture filtering and colour-space handling.

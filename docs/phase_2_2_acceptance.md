@@ -59,6 +59,38 @@ is now user-controlled across 0.0035 to 0.150 degrees per count, mapped geometri
 changes speed by a constant proportion. The default of 35 resolves to 0.0130 degrees per count,
 roughly a quarter of the previous speed. Settings apply for the session and are not persisted.
 
+## Scenario defects corrected
+
+Reported after play-testing and fixed in stage 07:
+
+- The Headwind field mapped straight to the solver's downrange wind component with no sign
+  change, so a positive headwind blew downrange and lengthened the shot. With the original
+  0.35 kg test projectile, +6 m/s of "headwind" reached 2052.9 m against 2047.8 m in still
+  air. It now shortens the shot to 2042.6 m.
+- Diameter was validated and stored but never entered any force calculation; only reference
+  area did. Changing diameter from 9 mm to 50 mm produced byte-identical results. Diameter now
+  drives reference area as pi*d^2/4, and the area remains editable as an explicit override.
+- Mass and diameter spin boxes carried four decimals and reference area eight, which silently
+  rounded preset values and reintroduced the same diameter/area mismatch. They now carry five,
+  five, and ten, and every preset round-trips to within 1.3e-6 relative.
+- Every spin box stepped by Qt's default of 1.0, meaningless for a mass in kilograms or an
+  area in square metres. Step size is now derived from each field's declared precision.
+
+The solver itself was checked and found correct: the C output was reproduced exactly by an
+independently written RK4 integrator, converged between 1e-4 and 1e-5 steps.
+
+## Projectile presets
+
+`apps/ballistics_gui/data/projectiles.json` holds eleven presets across rifle, pistol, rimfire,
+and sphere categories. Selecting one fills mass, diameter, reference area, drag coefficient, and
+muzzle speed; editing any of those by hand returns the selector to Custom.
+
+Mass and diameter are published nominal figures. Because the solver applies a constant drag
+coefficient, each coefficient is fitted so the trajectory reproduces a published remaining velocity
+at a stated reference distance. Both figures are stored, and a test re-derives every coefficient
+and asserts it still matches within 1%; the worst current error is 0.33%. A malformed or missing
+preset file degrades to custom-only with the reason shown rather than blocking the application.
+
 ## Verified host
 
 - Linux/X11 using Qt's `xcb` backend and Panda3D's `glxGraphicsPipe`.
@@ -71,9 +103,10 @@ roughly a quarter of the previous speed. Settings apply for the session and are 
 
 ## Test results
 
-- Python GUI, bridge, worker, coordinate, scoring, asset, layout, terrain, and settings tests:
-  43/43 passed, up from 17 in Phase 2.1. The new coverage is 15 layout and terrain-relief cases, a
-  sky cube-face pattern case, and 10 aim-speed and settings-presentation cases.
+- Python GUI, bridge, worker, coordinate, scoring, asset, layout, terrain, settings, projectile
+  preset, and controls tests: 74/74 passed, up from 17 in Phase 2.1. New coverage includes layout
+  and terrain relief, the sky cube-face pattern, aim speed, preset loading and schema validation,
+  the headwind sign, and the diameter/area coupling.
 - CTest unit, integration, and CLI-option targets: 3/3 passed.
 - ASan/UBSan clean rebuild in `build-sanitizers/`: 3/3 CTest targets passed with no sanitizer
   report.

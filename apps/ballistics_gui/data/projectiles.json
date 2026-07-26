@@ -1,0 +1,153 @@
+{
+  "schema_version": 1,
+  "note": [
+    "Projectile presets for the fictional range. Mass and diameter are the published",
+    "nominal figures for each cartridge's bullet. Reference area is not stored: it is",
+    "derived from diameter as pi*d^2/4, so the two can never disagree.",
+    "",
+    "The solver applies a SINGLE constant drag coefficient and does not model the Mach",
+    "dependence of real drag. Each drag_coefficient below is therefore a representative",
+    "value chosen so the constant-Cd trajectory matches the published remaining velocity",
+    "at the stated reference distance. It is accurate near that band and increasingly",
+    "wrong outside it, especially through the transonic region.",
+    "",
+    "Cd is derived from the closed-form solution of the drag-only horizontal case,",
+    "v(x) = v0*exp(-k*x) with k = rho*Cd*A/(2m), giving Cd = 2*m*ln(v0/vx)/(rho*A*x).",
+    "reference_speed_mps is the published remaining velocity at reference_distance_m,",
+    "recorded so each coefficient can be re-derived and checked."
+  ],
+  "presets": [
+    {
+      "id": "nato_556_m855",
+      "name": "5.56x45 NATO, 62 gr",
+      "category": "Rifle",
+      "mass_kg": 0.00402,
+      "diameter_m": 0.00570,
+      "drag_coefficient": 0.333,
+      "muzzle_speed_mps": 920.0,
+      "reference_distance_m": 500.0,
+      "reference_speed_mps": 480.0,
+      "description": "Light, fast, sheds velocity quickly past 500 m."
+    },
+    {
+      "id": "nato_762_m80",
+      "name": "7.62x51 NATO, 147 gr",
+      "category": "Rifle",
+      "mass_kg": 0.00953,
+      "diameter_m": 0.00782,
+      "drag_coefficient": 0.370,
+      "muzzle_speed_mps": 850.0,
+      "reference_distance_m": 500.0,
+      "reference_speed_mps": 480.0,
+      "description": "General-purpose flat-base military ball."
+    },
+    {
+      "id": "match_308_175",
+      "name": ".308 Match, 175 gr",
+      "category": "Rifle",
+      "mass_kg": 0.01134,
+      "diameter_m": 0.00782,
+      "drag_coefficient": 0.314,
+      "muzzle_speed_mps": 790.0,
+      "reference_distance_m": 1000.0,
+      "reference_speed_mps": 350.0,
+      "description": "Boat-tail match bullet; goes transonic near 900 m."
+    },
+    {
+      "id": "creedmoor_65_140",
+      "name": "6.5 Creedmoor, 140 gr",
+      "category": "Rifle",
+      "mass_kg": 0.00907,
+      "diameter_m": 0.00671,
+      "drag_coefficient": 0.300,
+      "muzzle_speed_mps": 820.0,
+      "reference_distance_m": 1000.0,
+      "reference_speed_mps": 400.0,
+      "description": "High sectional density for its calibre; low wind drift."
+    },
+    {
+      "id": "lapua_338_250",
+      "name": ".338 Lapua Magnum, 250 gr",
+      "category": "Rifle",
+      "mass_kg": 0.01620,
+      "diameter_m": 0.00861,
+      "drag_coefficient": 0.257,
+      "muzzle_speed_mps": 915.0,
+      "reference_distance_m": 1000.0,
+      "reference_speed_mps": 520.0,
+      "description": "Very low drag; stays supersonic well beyond 1200 m."
+    },
+    {
+      "id": "bmg_50_m33",
+      "name": ".50 BMG, 660 gr",
+      "category": "Rifle",
+      "mass_kg": 0.04280,
+      "diameter_m": 0.01295,
+      "drag_coefficient": 0.306,
+      "muzzle_speed_mps": 890.0,
+      "reference_distance_m": 1000.0,
+      "reference_speed_mps": 500.0,
+      "description": "Heavy anti-materiel ball; enormous retained energy."
+    },
+    {
+      "id": "pistol_9mm_115",
+      "name": "9x19mm, 115 gr",
+      "category": "Pistol",
+      "mass_kg": 0.00745,
+      "diameter_m": 0.00901,
+      "drag_coefficient": 0.269,
+      "muzzle_speed_mps": 380.0,
+      "reference_distance_m": 100.0,
+      "reference_speed_mps": 330.0,
+      "description": "Subsonic round-nose; drops sharply past 100 m."
+    },
+    {
+      "id": "pistol_45acp_230",
+      "name": ".45 ACP, 230 gr",
+      "category": "Pistol",
+      "mass_kg": 0.01490,
+      "diameter_m": 0.01148,
+      "drag_coefficient": 0.248,
+      "muzzle_speed_mps": 250.0,
+      "reference_distance_m": 100.0,
+      "reference_speed_mps": 225.0,
+      "description": "Heavy and slow; a very curved trajectory."
+    },
+    {
+      "id": "rimfire_22lr_40",
+      "name": ".22 LR, 40 gr",
+      "category": "Rimfire",
+      "mass_kg": 0.00259,
+      "diameter_m": 0.00566,
+      "drag_coefficient": 0.306,
+      "muzzle_speed_mps": 330.0,
+      "reference_distance_m": 100.0,
+      "reference_speed_mps": 275.0,
+      "description": "Light subsonic rimfire; useful for short-range practice."
+    },
+    {
+      "id": "ball_lead_69",
+      "name": "Lead round ball, 17.5 mm",
+      "category": "Sphere",
+      "mass_kg": 0.03182,
+      "diameter_m": 0.01750,
+      "drag_coefficient": 0.555,
+      "muzzle_speed_mps": 300.0,
+      "reference_distance_m": 100.0,
+      "reference_speed_mps": 232.0,
+      "description": "Smooth sphere. Above the classic 0.47 because 300 m/s is transonic, where sphere drag rises sharply."
+    },
+    {
+      "id": "ball_steel_10",
+      "name": "Steel sphere, 10 mm",
+      "category": "Sphere",
+      "mass_kg": 0.00411,
+      "diameter_m": 0.01000,
+      "drag_coefficient": 0.515,
+      "muzzle_speed_mps": 150.0,
+      "reference_distance_m": 50.0,
+      "reference_speed_mps": 111.0,
+      "description": "Low sectional density; decelerates very quickly. Near the classic 0.47 subsonic sphere value."
+    }
+  ]
+}

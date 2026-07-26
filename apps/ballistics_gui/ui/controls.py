@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import (
     QComboBox,
@@ -19,6 +21,14 @@ from PyQt6.QtWidgets import (
 )
 
 from ..simulation.models import ScenarioConfig
+from ..simulation.projectiles import (
+    ProjectilePreset,
+    circular_reference_area_m2,
+    load_projectile_presets,
+)
+
+
+CUSTOM_PRESET_LABEL = "Custom"
 
 
 class ScenarioControls(QWidget):
@@ -27,10 +37,20 @@ class ScenarioControls(QWidget):
     fire_requested = pyqtSignal()
     scope_requested = pyqtSignal()
     reset_requested = pyqtSignal()
+    preset_applied = pyqtSignal(str)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._fields: dict[str, QDoubleSpinBox] = {}
+        self._presets: tuple[ProjectilePreset, ...] = ()
+        self._preset_error: str | None = None
+        self._applying_preset = False
+        try:
+            self._presets = load_projectile_presets()
+        except RuntimeError as error:
+            # A missing or malformed preset file must not stop the user from firing a
+            # manually configured shot, so it degrades to custom-only with the reason shown.
+            self._preset_error = str(error)
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(10)
@@ -81,6 +101,14 @@ class ScenarioControls(QWidget):
         self.integrator = QComboBox()
         self.integrator.addItems(["rk4.v1", "euler.v1"])
         form.addRow("Integrator", self.integrator)
+
+        self.preset_box = QComboBox()
+        self.preset_box.addItem(CUSTOM_PRESET_LABEL, None)
+        for preset in self._presets:
+            self.preset_box.addItem(f"{preset.category} · {preset.name}", preset.identifier)
+        self.preset_box.currentIndexChanged.connect(self._preset_selected)
+        form.addRow("Projectile", self.preset_box)
+
         self._add_field(
             form, "Target", "target_distance_m", 25.0, 1000.0, 150.0, 1, "m"
         )
@@ -96,7 +124,48 @@ class ScenarioControls(QWidget):
         self._add_field(
             form, "Crosswind", "wind_y_mps", -200.0, 200.0, 2.0, 2, "m/s"
         )
+        self.preset_hint = QLabel(
+            self._preset_error
+            if self._preset_error is not None
+            else "Choose a projectile to fill mass, diameter, area, drag, and muzzle speed."
+        )
+        self.preset_hint.setObjectName("controlHint")
+        self.preset_hint.setWordWrap(True)
+        form.addRow(self.preset_hint)
         return group
+
+    def _preset_selected(self, index: int) -> None:
+        identifier = self.preset_box.itemData(index)
+        if identifier is None:
+            self.preset_hint.setText(
+                "Custom projectile — edit mass, diameter, drag, and speed by hand."
+            )
+            return
+        preset = next(p for p in self._presets if p.identifier == identifier)
+        self.apply_preset(preset)
+
+    def apply_preset(self, preset: ProjectilePreset) -> None:
+        """Populate every projectile field from one preset.
+
+        Guarded so the writes do not read back as manual edits, which would otherwise flip
+        the selector to Custom halfway through applying it.
+        """
+
+        self._applying_preset = True
+        try:
+            self._fields["projectile_mass_kg"].setValue(preset.mass_kg)
+            self._fields["projectile_diameter_m"].setValue(preset.diameter_m)
+            self._fields["reference_area_m2"].setValue(preset.reference_area_m2)
+            self._fields["drag_coefficient"].setValue(preset.drag_coefficient)
+            self._fields["launch_speed_mps"].setValue(preset.muzzle_speed_mps)
+        finally:
+            self._applying_preset = False
+        self.preset_hint.setText(
+            f"{preset.description} Sectional density "
+            f"{preset.sectional_density_kgpm2:.0f} kg/m². Drag coefficient fitted at "
+            f"{preset.reference_distance_m:.0f} m."
+        )
+        self.preset_applied.emit(preset.name)
 
     def _build_advanced_panel(self) -> QWidget:
         panel = QWidget()
@@ -157,17 +226,17 @@ class ScenarioControls(QWidget):
             0.0001,
             100.0,
             0.018,
-            4,
+            5,
             "kg",
         )
         self._add_field(
             projectile_form,
             "Diameter",
             "projectile_diameter_m",
-            0.0,
+            0.0001,
             1.0,
             0.009,
-            4,
+            5,
             "m",
         )
         self._add_field(
@@ -177,7 +246,7 @@ class ScenarioControls(QWidget):
             1.0e-9,
             1.0,
             6.3617e-5,
-            8,
+            10,
             "m²",
         )
         self._add_field(
@@ -190,6 +259,19 @@ class ScenarioControls(QWidget):
             3,
             "",
         )
+        # Diameter previously reached the solver's validator but no force calculation, so it
+        # could disagree with reference area indefinitely while only the area had any effect.
+        # It now drives the area, which is the value drag actually uses.
+        self._fields["projectile_diameter_m"].valueChanged.connect(
+            self._diameter_changed
+        )
+        area_hint = QLabel(
+            "Reference area follows diameter as πd²/4. Editing it directly overrides that "
+            "for a non-circular cross-section; only the area reaches the drag model."
+        )
+        area_hint.setObjectName("controlHint")
+        area_hint.setWordWrap(True)
+        projectile_form.addRow(area_hint)
         layout.addWidget(projectile)
 
         environment = QGroupBox("ENVIRONMENT")
@@ -204,10 +286,14 @@ class ScenarioControls(QWidget):
             3,
             "kg/m³",
         )
+        # Stored as headwind, converted to the solver's downrange wind component in
+        # `scenario`. A positive headwind blows toward the shooter, which is -x, so the two
+        # differ by a sign; passing this field straight through made a headwind behave as a
+        # tailwind and lengthen the shot.
         self._add_field(
             environment_form,
             "Headwind",
-            "wind_x_mps",
+            "headwind_mps",
             -200.0,
             200.0,
             0.0,
@@ -279,6 +365,7 @@ class ScenarioControls(QWidget):
         field = QDoubleSpinBox()
         field.setRange(minimum, maximum)
         field.setDecimals(decimals)
+        field.setSingleStep(min(1.0, 10.0 ** (1 - decimals)))
         field.setValue(value)
         field.setKeyboardTracking(False)
         if suffix:
@@ -292,8 +379,37 @@ class ScenarioControls(QWidget):
             Qt.ArrowType.DownArrow if visible else Qt.ArrowType.RightArrow
         )
 
+    def _diameter_changed(self, diameter_m: float) -> None:
+        area = self._fields["reference_area_m2"]
+        derived = circular_reference_area_m2(diameter_m)
+        if math.isclose(area.value(), derived, rel_tol=1e-9, abs_tol=1e-12):
+            return
+        blocked = area.blockSignals(True)
+        try:
+            area.setValue(derived)
+        finally:
+            area.blockSignals(blocked)
+        if not self._applying_preset:
+            self._mark_custom()
+
+    def _mark_custom(self) -> None:
+        """Drop back to Custom once any projectile value is edited by hand."""
+
+        if self.preset_box.currentData() is None:
+            return
+        blocked = self.preset_box.blockSignals(True)
+        try:
+            self.preset_box.setCurrentIndex(0)
+        finally:
+            self.preset_box.blockSignals(blocked)
+        self.preset_hint.setText(
+            "Custom projectile — edit mass, diameter, drag, and speed by hand."
+        )
+
     def scenario(self) -> ScenarioConfig:
         values = {name: field.value() for name, field in self._fields.items()}
+        # A positive headwind opposes the shot, so it is the negative downrange component.
+        values["wind_x_mps"] = -values.pop("headwind_mps")
         config = ScenarioConfig(integrator=self.integrator.currentText(), **values)
         config.validate()
         return config
