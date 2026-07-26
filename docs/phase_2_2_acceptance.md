@@ -79,6 +79,36 @@ Reported after play-testing and fixed in stage 07:
 The solver itself was checked and found correct: the C output was reproduced exactly by an
 independently written RK4 integrator, converged between 1e-4 and 1e-5 steps.
 
+## Optic zeroing
+
+Reported after play-testing: the shot did not line up with the centre of the reticle. Measured
+with the crosshair placed exactly on the target centre, the impact fell 0.612 m low at 100 m and
+1.305 m low at 150 m, with lateral error of exactly 0.000 m. The cause was that nothing zeroed the
+optic — the reticle marked the bore axis, so the entire bullet drop appeared as error.
+
+The optic is now zeroed at a user-set distance, defaulting to 150 m. `simulation/zeroing.py`
+searches for the launch elevation whose trajectory crosses the line of sight at that distance,
+driving the same C solver rather than integrating in Python, and applies the resulting angle to
+every aim. Verified impact relative to the crosshair, still air:
+
+| Zero | Offset | Probes | Impact at zero distance |
+| --- | --- | --- | --- |
+| 100 m | +6.12 mil | 2 | -0.0 mm |
+| 150 m | +8.69 mil | 2 | -0.1 mm |
+| 200 m | +11.52 mil | 3 | -0.2 mm |
+| 300 m | +17.69 mil | 4 | -0.6 mm |
+
+Away from the zero the trajectory behaves as a zeroed rifle should: with a 150 m zero the shot
+lands 0.22 m high at 50 m and 0.26 m high at 100 m, and 0.57 m low at 200 m. Flatter loads need
+less elevation — the .308 Match preset needs 1.81 mil at 150 m against 8.69 mil for the slow
+default.
+
+Two solver defects were found and fixed while building this. The initial probe was fired level,
+which cannot reach any zero beyond about 150 m from shoulder height, so the solver abandoned zeros
+that plainly existed at a higher angle; the trial angle is now escalated until the shot carries.
+And solving at the finest allowed time step cost 219 ms before the first shot; probes are now
+capped at a 1 ms step, which yields a bit-identical angle in 29 ms.
+
 ## Projectile presets
 
 `apps/ballistics_gui/data/projectiles.json` holds eleven presets across rifle, pistol, rimfire,
@@ -104,7 +134,7 @@ preset file degrades to custom-only with the reason shown rather than blocking t
 ## Test results
 
 - Python GUI, bridge, worker, coordinate, scoring, asset, layout, terrain, settings, projectile
-  preset, and controls tests: 74/74 passed, up from 17 in Phase 2.1. New coverage includes layout
+  preset, controls, and zeroing tests: 89/89 passed, up from 17 in Phase 2.1. New coverage includes layout
   and terrain relief, the sky cube-face pattern, aim speed, preset loading and schema validation,
   the headwind sign, and the diameter/area coupling.
 - CTest unit, integration, and CLI-option targets: 3/3 passed.

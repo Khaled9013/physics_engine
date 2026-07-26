@@ -124,6 +124,16 @@ class ScenarioControls(QWidget):
         self._add_field(
             form, "Crosswind", "wind_y_mps", -200.0, 200.0, 2.0, 2, "m/s"
         )
+        # The optic's zero: the distance at which the bore's line crosses the line of sight,
+        # so point of aim equals point of impact there. Not part of ScenarioConfig, because
+        # it describes the sight rather than the shot.
+        self._add_field(
+            form, "Zero at", "zero_distance_m", 25.0, 1000.0, 150.0, 1, "m"
+        )
+        self.zero_readout = QLabel("Optic not yet zeroed.")
+        self.zero_readout.setObjectName("controlHint")
+        self.zero_readout.setWordWrap(True)
+        form.addRow(self.zero_readout)
         self.preset_hint = QLabel(
             self._preset_error
             if self._preset_error is not None
@@ -406,10 +416,18 @@ class ScenarioControls(QWidget):
             "Custom projectile — edit mass, diameter, drag, and speed by hand."
         )
 
+    def zero_distance_m(self) -> float:
+        return self._fields["zero_distance_m"].value()
+
+    def set_zero_readout(self, text: str) -> None:
+        self.zero_readout.setText(text)
+
     def scenario(self) -> ScenarioConfig:
         values = {name: field.value() for name, field in self._fields.items()}
         # A positive headwind opposes the shot, so it is the negative downrange component.
         values["wind_x_mps"] = -values.pop("headwind_mps")
+        # Sight properties are not part of the shot the solver runs.
+        values.pop("zero_distance_m", None)
         config = ScenarioConfig(integrator=self.integrator.currentText(), **values)
         config.validate()
         return config

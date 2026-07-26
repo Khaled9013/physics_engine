@@ -22,9 +22,15 @@ from PyQt6.QtWidgets import (
 from ..render.range_scene import DEFAULT_SENSITIVITY_SETTING, sensitivity_to_degrees
 from ..simulation.models import ShotResult
 from ..simulation.worker import SimulationWorker
+from ..simulation.zeroing import apply_zero, solve_zero_offset, zero_cache_key
 from .controls import ScenarioControls
 from .range_widget import RangeWidget
 from .settings_dialog import DISPLAY_MODE_FULLSCREEN, SettingsDialog
+
+
+# Eye height in the rendered scene. The optic's zero is the angle between this line of sight
+# and the bore, so the two must agree or the crosshair will not mark the point of impact.
+CAMERA_HEIGHT_M = 1.58
 
 
 class MainWindow(QMainWindow):
@@ -60,6 +66,7 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage("Initializing native GPU range…")
 
         self.sensitivity_setting = DEFAULT_SENSITIVITY_SETTING
+        self._zero_cache: dict[tuple, object] = {}
         self._settings_dialog: SettingsDialog | None = None
         self._windowed_size = (self.width(), self.height())
         # Panda3D only receives the escape key while it holds the pointer. A window-level
@@ -167,6 +174,35 @@ class MainWindow(QMainWindow):
     def _scope_changed(self, enabled: bool) -> None:
         self._log("Optic raised" if enabled else "Optic lowered")
 
+    def _zero_solution(self, config, zero_distance_m: float):
+        """Return the optic's bore-to-sight offset, solving and caching it on first use.
+
+        The offset depends on the load and the environment but not on where the rifle is
+        pointed, so it is cached against everything except aim and crosswind.
+        """
+
+        key = zero_cache_key(config, zero_distance_m, CAMERA_HEIGHT_M)
+        cached = self._zero_cache.get(key)
+        if cached is not None:
+            return cached
+        solution = solve_zero_offset(config, self.cli_path, zero_distance_m, CAMERA_HEIGHT_M)
+        self._zero_cache[key] = solution
+        if solution.converged:
+            self._log(
+                f"Optic zeroed at {solution.zero_distance_m:.0f} m: "
+                f"{solution.offset_deg:+.4f}° ({solution.offset_mil:+.2f} mil) in "
+                f"{solution.iterations} passes"
+            )
+            self.controls.set_zero_readout(
+                f"Zeroed at {solution.zero_distance_m:.0f} m — bore sits "
+                f"{solution.offset_mil:+.2f} mil ({solution.offset_moa:+.1f} MOA) above the "
+                f"sight line. Beyond that distance the shot drops below the reticle."
+            )
+        else:
+            self._log(f"Optic zeroing failed: {solution.message}")
+            self.controls.set_zero_readout(f"Not zeroed — {solution.message}")
+        return solution
+
     @pyqtSlot()
     def fire(self) -> None:
         try:
@@ -175,6 +211,10 @@ class MainWindow(QMainWindow):
             self._log(f"Invalid scenario: {error}")
             return
         self.viewport.set_aim(config.elevation_deg, config.azimuth_deg)
+        # The controls carry the line of sight; the bore is raised by the optic's zero so
+        # that the crosshair and the impact agree at the zero distance.
+        solution = self._zero_solution(config, self.controls.zero_distance_m())
+        config = apply_zero(config, solution)
         self._request_id += 1
         request_id = self._request_id
         worker = SimulationWorker(request_id, config, self.cli_path)

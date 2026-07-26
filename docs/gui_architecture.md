@@ -22,6 +22,20 @@ solver's validator but no force calculation, so the two could disagree indefinit
 area had any effect. The area stays editable for a non-circular cross-section, and only the area
 reaches the drag model.
 
+`simulation/zeroing.py` finds the optic's zero. The reticle marks the line of sight, and a
+projectile leaves along the bore and then falls, so parallel bore and sight would put every shot
+below the crosshair by the full drop — 1.3 m at 150 m with the default load. The module searches
+for the launch elevation whose trajectory crosses the sight line at a chosen distance, and that
+angle is then added to every aim, exactly as a fixed-mount optic does mechanically.
+
+It integrates nothing itself: it drives the same C solver as every other shot, so Python still
+never substitutes its own physics. The search escalates the trial angle until the shot carries far
+enough — starting level is wrong for anything but a short zero, because a horizontally fired
+projectile reaches the ground well before a distant one. Probes are capped at a 1 ms step, which
+gives an angle identical to five decimal places at a seventh of the latency, and the result is
+cached against everything except aim and crosswind, since the offset is mechanical and a zero is
+established in still air.
+
 Preset drag coefficients are single representative values. The solver applies a constant coefficient
 and does not model the Mach dependence of real drag, so each one is fitted to reproduce a published
 remaining velocity at a stated distance. Both figures are stored in the preset file so every
