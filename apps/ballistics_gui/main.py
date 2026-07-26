@@ -60,17 +60,40 @@ def main() -> int:
     window = MainWindow(cli_path)
     window.show()
     if arguments.smoke_test:
-        QTimer.singleShot(250, window.fire)
+        _schedule_smoke_test(application, window, arguments)
+    return application.exec()
+
+
+def _schedule_smoke_test(application, window, arguments) -> None:
+    """Drive one automated shot once the renderer reports itself ready.
+
+    The sequence is chained off `renderer_ready` rather than off fixed delays from launch.
+    Scene construction cost depends on the host and on how much the range contains, so a
+    wall-clock schedule silently captures blank frames whenever loading runs long.
+    """
+
+    from PyQt6.QtCore import QTimer
+
+    def begin() -> None:
+        QTimer.singleShot(150, window.fire)
         if arguments.smoke_scope:
-            QTimer.singleShot(500, window.viewport.toggle_scope)
+            QTimer.singleShot(400, window.viewport.toggle_scope)
         if arguments.screenshot is not None:
             screenshot_path = arguments.screenshot.resolve()
-            QTimer.singleShot(1800, lambda: window.save_viewport_screenshot(screenshot_path))
+            QTimer.singleShot(1700, lambda: window.save_viewport_screenshot(screenshot_path))
         if arguments.window_screenshot is not None:
             window_screenshot_path = arguments.window_screenshot.resolve()
-            QTimer.singleShot(1850, lambda: window.save_window_screenshot(window_screenshot_path))
-        QTimer.singleShot(2200, application.quit)
-    return application.exec()
+            QTimer.singleShot(1750, lambda: window.save_window_screenshot(window_screenshot_path))
+        QTimer.singleShot(2100, application.quit)
+
+    def abandon(message: str) -> None:
+        print(f"ballistics_gui: smoke test aborted: {message}", file=sys.stderr)
+        application.exit(3)
+
+    window.viewport.renderer_ready.connect(begin)
+    window.viewport.renderer_failed.connect(abandon)
+    # A renderer that never reports either outcome must still terminate the run.
+    QTimer.singleShot(90_000, lambda: abandon("renderer did not become ready"))
 
 
 if __name__ == "__main__":

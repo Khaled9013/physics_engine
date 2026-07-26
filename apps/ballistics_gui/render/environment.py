@@ -1,11 +1,28 @@
-"""Asset-backed outdoor range construction."""
+"""Asset-backed outdoor range construction.
+
+This module is a builder. Every position, size, and colour it uses comes from
+`range_layout`, every surface response comes from `materials`, and every ground mesh comes
+from `terrain`. Keeping content out of the builder is what allows the layout to be inspected
+without a graphics context.
+"""
 
 from __future__ import annotations
 
-from panda3d.core import NodePath
+from panda3d.core import NodePath, TransparencyAttrib
 
-from .assets import VisualAssetPaths, load_texture
-from .procedural import add_box, add_sphere, add_textured_card
+from . import range_layout as layout
+from .assets import VisualAssetPaths
+from .materials import apply_flat_material, apply_texture_set
+from .procedural import (
+    add_box,
+    add_cross_billboard,
+    add_sphere,
+    add_textured_card,
+    make_canopy_texture,
+    make_grass_tuft_texture,
+    make_target_face_texture,
+)
+from .terrain import build_terrain
 
 
 class RangeEnvironment:
@@ -16,200 +33,154 @@ class RangeEnvironment:
         self.parent = parent
         self.assets = assets
         self.root = parent.attachNewNode("range-environment")
+        self.target_face_texture = make_target_face_texture()
+        self._canopy_texture = make_canopy_texture()
+        self._tuft_texture = make_grass_tuft_texture()
         self._build_ground()
         self._build_lane()
         self._build_firing_line()
-        self._build_berms_and_horizon()
-        self._build_range_dressing()
+        self._build_landforms()
+        self._build_vegetation()
+        self._build_background_bays()
 
     def _build_ground(self) -> None:
-        grass_texture = load_texture(self.base.loader, self.assets.grass_diffuse, repeat=True)
-        ground = add_textured_card(
-            self.root,
-            "sparse-grass-ground",
-            (-90.0, 90.0, -35.0, 1120.0),
-            grass_texture,
-            (42.0, 260.0),
-        )
-        ground.setP(-90.0)
-        ground.setColorScale(0.58, 0.68, 0.54, 1.0)
-        ground.setZ(-0.035)
+        loader = self.base.loader
+        for band, textures in (
+            (layout.NEAR_FIELD, self.assets.grass),
+            (layout.FAR_FIELD, self.assets.macro_ground),
+        ):
+            mesh = build_terrain(
+                self.root,
+                band.name,
+                x_range=band.x_range,
+                y_range=band.y_range,
+                divisions=band.divisions,
+                tile_size_m=band.tile_size_m,
+                amplitude=band.amplitude,
+                y_bias=band.y_bias,
+            )
+            apply_texture_set(loader, mesh, band.name, textures, base_color=band.tint)
 
     def _build_lane(self) -> None:
         loader = self.base.loader
-        gravel_texture = load_texture(self.base.loader, self.assets.gravel_diffuse, repeat=True)
-        lane = add_textured_card(
+        lane = build_terrain(
             self.root,
             "gravel-range-lane",
-            (-7.0, 7.0, -8.0, 1050.0),
-            gravel_texture,
-            (5.0, 250.0),
+            x_range=(-layout.LANE_HALF_WIDTH_M, layout.LANE_HALF_WIDTH_M),
+            y_range=(layout.LANE_START_M, layout.LANE_END_M),
+            divisions=(10, 96),
+            tile_size_m=layout.LANE_TILE_SIZE_M,
+            amplitude=0.0,
+            y_bias=1.35,
         )
-        lane.setP(-90.0)
-        lane.setColorScale(0.48, 0.43, 0.34, 1.0)
-        lane.setZ(0.005)
-        for lateral in (-7.15, 7.15):
-            add_box(
-                loader,
-                self.root,
-                "lane-curb",
-                (lateral, 520.0, 0.08),
-                (0.13, 528.0, 0.08),
-                (0.63, 0.61, 0.55, 1.0),
-            )
-        for distance in range(50, 1001, 50):
-            width = 0.16 if distance % 100 else 0.28
-            color = (0.78, 0.74, 0.62, 1.0) if distance % 100 else (0.92, 0.78, 0.30, 1.0)
-            add_box(
-                loader,
-                self.root,
-                "distance-stripe",
-                (0.0, float(distance), 0.055),
-                (7.0, width, 0.025),
-                color,
-            )
+        apply_texture_set(
+            loader, lane, "gravel-range-lane", self.assets.gravel,
+            base_color=layout.LANE_TINT,
+        )
+        lane.setZ(layout.LANE_SURFACE_Z)
+        for marker in layout.distance_markers():
+            add_box(loader, self.root, marker.name, marker.position, marker.scale, marker.color)
 
     def _build_firing_line(self) -> None:
         loader = self.base.loader
-        add_box(
-            loader,
-            self.root,
-            "firing-pad",
-            (0.0, -1.5, 0.06),
-            (5.7, 4.8, 0.06),
-            (0.24, 0.25, 0.24, 1.0),
-        )
-        for lateral in (-5.7, 5.7):
+        for placement in layout.FIRING_LINE:
             add_box(
                 loader,
                 self.root,
-                "firing-bay-post",
-                (lateral, 1.3, 1.7),
-                (0.12, 0.12, 1.7),
-                (0.12, 0.14, 0.14, 1.0),
-            )
-        add_box(
-            loader,
-            self.root,
-            "firing-bay-rail",
-            (0.0, 2.6, 0.38),
-            (5.8, 0.08, 0.06),
-            (0.20, 0.22, 0.22, 1.0),
-        )
-        for lateral in (-5.0, 5.0):
-            add_box(
-                loader,
-                self.root,
-                "equipment-case",
-                (lateral, 3.3, 0.35),
-                (0.65, 0.9, 0.35),
-                (0.18, 0.23, 0.18, 1.0),
+                placement.name,
+                placement.position,
+                placement.scale,
+                placement.color,
             )
 
-    def _build_berms_and_horizon(self) -> None:
+    def _build_landforms(self) -> None:
         loader = self.base.loader
-        for lateral in (-31.0, 31.0):
+        for berm in layout.BERMS:
+            add_sphere(loader, self.root, "side-berm", berm.position, berm.scale, berm.color)
+        ridge_root = self.root.attachNewNode("distant-ridges")
+        for ridge in layout.RIDGES:
             add_sphere(
-                loader,
-                self.root,
-                "side-berm",
-                (lateral, 530.0, 1.2),
-                (25.0, 545.0, 4.8),
-                (0.20, 0.28, 0.16, 1.0),
-            )
-        add_sphere(
-            loader,
-            self.root,
-            "backstop-earth",
-            (0.0, 1035.0, 4.0),
-            (72.0, 28.0, 12.0),
-            (0.25, 0.29, 0.19, 1.0),
-        )
-        mountain_data = (
-            (-150.0, 1320.0, 28.0, 130.0, 95.0, 52.0),
-            (-20.0, 1450.0, 34.0, 170.0, 120.0, 62.0),
-            (145.0, 1360.0, 24.0, 145.0, 105.0, 48.0),
-        )
-        for x, y, z, sx, sy, sz in mountain_data:
-            add_sphere(
-                loader,
-                self.root,
-                "distant-ridge",
-                (x, y, z),
-                (sx, sy, sz),
-                (0.25, 0.31, 0.29, 1.0),
+                loader, ridge_root, "distant-ridge", ridge.position, ridge.scale, ridge.color
             )
 
-    def _build_range_dressing(self) -> None:
-        tree_positions = (
-            (-18.0, 42.0, 1.0),
-            (21.0, 65.0, 1.2),
-            (-27.0, 105.0, 1.3),
-            (30.0, 145.0, 1.1),
-            (-37.0, 225.0, 1.4),
-            (39.0, 310.0, 1.3),
-            (-45.0, 410.0, 1.5),
-            (47.0, 530.0, 1.4),
+    def _build_vegetation(self) -> None:
+        tree_root = self.root.attachNewNode("range-vegetation")
+        for tree in layout.TREES:
+            self._add_tree(tree_root, tree)
+        tuft_root = self.root.attachNewNode("ground-clutter")
+        # One prototype instanced per placement. Building a fresh pair of cards for every
+        # tuft dominated scene construction, and the geometry is identical anyway; scale and
+        # heading vary per instance, which is what breaks up the repetition.
+        prototype = add_cross_billboard(
+            self.root.attachNewNode("grass-tuft-prototype"),
+            "grass-tuft",
+            self._tuft_texture,
+            0.62,
+            0.46,
         )
-        for x, y, scale in tree_positions:
-            self._add_tree(x, y, scale)
-        for lateral, distance in ((-4.6, 100.0), (4.8, 250.0), (-4.7, 500.0)):
-            self._add_background_target(lateral, distance)
+        prototype.getParent().hide()
+        for x, y, scale, heading in layout.grass_tufts():
+            placement = tuft_root.attachNewNode("grass-tuft-instance")
+            placement.setPos(x, y, 0.0)
+            placement.setH(heading)
+            placement.setScale(scale)
+            prototype.instanceTo(placement)
 
-    def _add_tree(self, lateral: float, distance: float, scale: float) -> None:
-        loader = self.base.loader
-        root = self.root.attachNewNode("range-tree")
-        root.setPos(lateral, distance, 0.0)
+    def _add_tree(self, parent: NodePath, tree: layout.TreePlacement) -> None:
+        root = parent.attachNewNode("range-tree")
+        root.setPos(tree.lateral, tree.distance, 0.0)
+        root.setR(tree.lean_deg)
+        trunk_height = 2.6 * tree.scale
         add_box(
-            loader,
+            self.base.loader,
             root,
             "tree-trunk",
-            (0.0, 0.0, 1.5 * scale),
-            (0.22 * scale, 0.22 * scale, 1.5 * scale),
-            (0.24, 0.15, 0.08, 1.0),
+            (0.0, 0.0, trunk_height * 0.5),
+            (0.16 * tree.scale, 0.16 * tree.scale, trunk_height * 0.5),
+            (0.19, 0.15, 0.11, 1.0),
         )
-        for offset_x, offset_y, offset_z, radius in (
-            (0.0, 0.0, 4.1, 2.0),
-            (-1.0, 0.15, 3.8, 1.5),
-            (1.0, -0.1, 3.7, 1.45),
-        ):
-            add_sphere(
+        canopy = add_cross_billboard(
+            root,
+            "tree-canopy",
+            self._canopy_texture,
+            5.4 * tree.scale,
+            5.0 * tree.scale,
+        )
+        canopy.setZ(trunk_height * 0.72)
+
+    def _build_background_bays(self) -> None:
+        loader = self.base.loader
+        for bay in layout.TARGET_BAYS:
+            root = self.root.attachNewNode("background-target-bay")
+            root.setPos(bay.lateral, bay.distance, 0.0)
+            for lateral in (-0.62, 0.62):
+                add_box(
+                    loader,
+                    root,
+                    "target-post",
+                    (lateral, 0.0, 0.62),
+                    (0.045, 0.045, 0.62),
+                    (0.26, 0.21, 0.14, 1.0),
+                )
+            board = add_box(
                 loader,
                 root,
-                "tree-canopy",
-                (offset_x * scale, offset_y * scale, offset_z * scale),
-                (radius * scale, radius * scale, radius * 0.9 * scale),
-                (0.16, 0.28, 0.14, 1.0),
+                "target-board",
+                (0.0, 0.0, 1.42),
+                (0.70, 0.035, 0.70),
+                (0.62, 0.60, 0.55, 1.0),
             )
-
-    def _add_background_target(self, lateral: float, distance: float) -> None:
-        loader = self.base.loader
-        root = self.root.attachNewNode("background-target-bay")
-        root.setPos(lateral, distance, 0.0)
-        add_box(
-            loader,
-            root,
-            "target-post",
-            (0.0, 0.0, 1.15),
-            (0.06, 0.06, 1.15),
-            (0.29, 0.23, 0.15, 1.0),
-        )
-        add_box(
-            loader,
-            root,
-            "target-board",
-            (0.0, 0.0, 2.25),
-            (0.75, 0.07, 0.75),
-            (0.78, 0.77, 0.70, 1.0),
-        )
-        add_sphere(
-            loader,
-            root,
-            "target-plate",
-            (0.0, -0.085, 2.25),
-            (0.38, 0.035, 0.38),
-            (0.32, 0.37, 0.38, 1.0),
-        )
+            board.setTwoSided(True)
+            face = add_textured_card(
+                root,
+                "background-target-face",
+                (-0.62, 0.62, -0.62, 0.62),
+                self.target_face_texture,
+            )
+            face.setPos(0.0, -0.042, 1.42)
+            face.setTransparency(TransparencyAttrib.MAlpha)
+            apply_flat_material(face, "background-target-face-material", (1.0, 1.0, 1.0, 1.0))
+            face.clearColor()
 
     def destroy(self) -> None:
         self.root.removeNode()

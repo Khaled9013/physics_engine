@@ -8,28 +8,44 @@ from typing import Callable
 
 from direct.gui.OnscreenText import OnscreenText
 from panda3d.core import (
-    AmbientLight,
     ClockObject,
-    DirectionalLight,
     Filename,
-    Fog,
     LineSegs,
     TextNode,
+    TransparencyAttrib,
 )
 
 from ..simulation.models import ShotResult
-from .assets import visual_asset_paths
+from .assets import require_asset, visual_asset_paths
 from .coordinates import sample_to_panda
 from .environment import RangeEnvironment
+from .lighting import RangeLighting
+from .materials import apply_flat_material
 from .procedural import (
     add_box,
     add_fullscreen_texture,
     add_sphere,
-    apply_material,
+    add_textured_card,
+    make_impact_decal_texture,
     make_scope_texture,
 )
 from .scoring import TargetScore, score_target_plane
+from .sky import HAZE_COLOR, RangeSky
 from .view_model import PrecisionViewModel
+
+
+HIP_FIELD_OF_VIEW_DEG = 68.0
+SCOPE_FIELD_OF_VIEW_DEG = 11.5
+
+# A distant near plane is affordable now that the first-person rig no longer needs the
+# camera to resolve geometry a few centimetres away, and it is what allows the far plane to
+# reach the distant ridges without losing depth precision across the lane.
+WORLD_NEAR_M = 0.30
+WORLD_FAR_M = 12000.0
+
+TARGET_CENTRE_HEIGHT_M = 2.0
+TARGET_FACE_HALF_M = 0.85
+IMPACT_DECAL_COUNT = 12
 
 
 class RangeScene:
@@ -60,25 +76,28 @@ class RangeScene:
         self.shot_playback_rate = 1.0
         self.pending_score: TargetScore | None = None
         self.target_reaction_started_s = -1.0
+        self._next_decal_index = 0
         self._last_aim_emit = (self.elevation_deg, self.azimuth_deg)
 
+        assets = visual_asset_paths()
         self.world_root = base.render.attachNewNode("range-world")
         self.effects_root = base.render.attachNewNode("shot-effects")
         self.base.disableMouse()
-        self.base.camera.setPos(0.0, 0.0, 1.55)
-        self.base.camLens.setFov(70.0)
-        self.base.camLens.setNearFar(0.025, 2500.0)
-        self.base.setBackgroundColor(0.19, 0.36, 0.52)
-        self._initialize_pipeline()
-        self._build_lighting()
-        self.environment = RangeEnvironment(base, self.world_root, visual_asset_paths())
+        self.base.camera.setPos(0.0, 0.0, 1.58)
+        self.base.camLens.setFov(HIP_FIELD_OF_VIEW_DEG)
+        self.base.camLens.setNearFar(WORLD_NEAR_M, WORLD_FAR_M)
+        self.base.setBackgroundColor(*HAZE_COLOR)
+        self._initialize_pipeline(assets)
+        self.lighting = RangeLighting(base)
+        self.sky = RangeSky(base, assets.sky)
+        self.environment = RangeEnvironment(base, self.world_root, assets)
         self._build_target()
-        self.view_model = PrecisionViewModel(base, visual_asset_paths())
+        self.view_model = PrecisionViewModel(base, assets)
         self._build_overlay()
         self._bind_input()
         self.base.taskMgr.add(self._update, "ballistics-range-update")
 
-    def _initialize_pipeline(self) -> None:
+    def _initialize_pipeline(self, assets) -> None:
         try:
             import simplepbr
         except ImportError as error:
@@ -95,82 +114,84 @@ class RangeScene:
             use_normal_maps=True,
             use_occlusion_maps=True,
             use_emission_maps=True,
-            exposure=-0.15,
+            exposure=-1.15,
             enable_shadows=True,
-            enable_fog=False,
+            # Panda3D's `render.setFog` has no effect under the physically-based shader
+            # unless the pipeline is compiled with fog support, so distance haze depends on
+            # this flag being set here rather than only on the Fog node itself.
+            enable_fog=True,
         )
-
-    def _build_lighting(self) -> None:
-        ambient = AmbientLight("range-ambient")
-        ambient.setColor((0.28, 0.31, 0.34, 1.0))
-        self.ambient_node = self.base.render.attachNewNode(ambient)
-        self.base.render.setLight(self.ambient_node)
-
-        sun = DirectionalLight("range-sun")
-        sun.setColorTemperature(5550.0)
-        sun.setShadowCaster(True, 1536, 1536)
-        self.sun_node = self.base.render.attachNewNode(sun)
-        self.sun_node.setHpr(-28.0, -52.0, 0.0)
-        self.base.render.setLight(self.sun_node)
-
-        fog = Fog("range-atmospheric-haze")
-        fog.setColor(0.30, 0.49, 0.64)
-        fog.setLinearRange(520.0, 1500.0)
-        self.base.render.setFog(fog)
+        for face in assets.sky.cube_faces:
+            require_asset(face)
+        self.pipeline.env_map = simplepbr.EnvMap.from_file_path(
+            Filename.fromOsSpecific(str(assets.sky.cube_pattern()))
+        )
 
     def _build_target(self) -> None:
         loader = self.base.loader
         self.target_root = self.world_root.attachNewNode("active-target")
-        for lateral in (-1.22, 1.22):
+        for lateral in (-0.98, 0.98):
             add_box(
                 loader,
                 self.target_root,
                 "target-post",
-                (lateral, 0.0, 1.25),
-                (0.075, 0.075, 1.25),
-                (0.24, 0.18, 0.10, 1.0),
+                (lateral, 0.0, TARGET_CENTRE_HEIGHT_M * 0.5),
+                (0.055, 0.055, TARGET_CENTRE_HEIGHT_M * 0.5),
+                (0.23, 0.18, 0.11, 1.0),
             )
-        add_box(
+        self.target_board = add_box(
             loader,
             self.target_root,
             "target-board",
-            (0.0, 0.0, 2.0),
-            (1.55, 0.10, 1.55),
-            (0.75, 0.72, 0.64, 1.0),
+            (0.0, 0.0, TARGET_CENTRE_HEIGHT_M),
+            (0.95, 0.035, 0.95),
+            (0.40, 0.39, 0.36, 1.0),
         )
         add_box(
             loader,
             self.target_root,
             "target-cap",
-            (0.0, 0.0, 3.58),
-            (1.65, 0.13, 0.08),
-            (0.18, 0.20, 0.19, 1.0),
+            (0.0, 0.0, TARGET_CENTRE_HEIGHT_M + 1.0),
+            (1.0, 0.05, 0.05),
+            (0.18, 0.19, 0.18, 1.0),
         )
-        ring_data = (
-            (0.95, -0.125, (0.11, 0.13, 0.13, 1.0)),
-            (0.72, -0.17, (0.78, 0.74, 0.62, 1.0)),
-            (0.48, -0.215, (0.72, 0.17, 0.12, 1.0)),
-            (0.23, -0.26, (0.92, 0.78, 0.24, 1.0)),
+        self.target_face = add_textured_card(
+            self.target_root,
+            "target-face",
+            (
+                -TARGET_FACE_HALF_M,
+                TARGET_FACE_HALF_M,
+                -TARGET_FACE_HALF_M,
+                TARGET_FACE_HALF_M,
+            ),
+            self.environment.target_face_texture,
         )
-        self.target_rings = []
-        for radius, y, color in ring_data:
-            ring = add_sphere(
-                loader,
-                self.target_root,
-                "target-scoring-ring",
-                (0.0, y, 2.0),
-                (radius, 0.035, radius),
-                color,
+        self.target_face.setPos(0.0, -0.038, TARGET_CENTRE_HEIGHT_M)
+        self.target_face.setTransparency(TransparencyAttrib.MAlpha)
+        apply_flat_material(self.target_face, "target-face-material", (1.0, 1.0, 1.0, 1.0))
+        self.target_face.clearColor()
+
+        decal_texture = make_impact_decal_texture()
+        self.impact_decals = []
+        for index in range(IMPACT_DECAL_COUNT):
+            decal = add_textured_card(
+                self.target_face,
+                f"impact-decal-{index}",
+                (-0.030, 0.030, -0.030, 0.030),
+                decal_texture,
             )
-            self.target_rings.append(ring)
-        self.target_plate = self.target_rings[0]
-        self.target_center = self.target_rings[-1]
+            decal.setTransparency(TransparencyAttrib.MAlpha)
+            decal.setY(-0.006)
+            decal.setLightOff(1)
+            decal.hide()
+            self.impact_decals.append(decal)
         self.set_target_distance(self.target_distance_m)
 
     def _build_overlay(self) -> None:
-        aspect_ratio = max(self.base.getAspectRatio(), 0.5)
-        width = 960
-        height = max(480, min(960, round(width / aspect_ratio)))
+        # Sized from the output rather than its window properties so the overlay also
+        # builds when the scene is rendered into an offscreen buffer.
+        width = max(512, min(1280, self.base.win.getXSize()))
+        height = max(384, min(1280, self.base.win.getYSize()))
         self.scope_overlay = add_fullscreen_texture(
             self.base, make_scope_texture(width, height)
         )
@@ -179,8 +200,8 @@ class RangeScene:
             text="+",
             pos=(0.0, -0.018),
             scale=0.038,
-            fg=(0.73, 0.88, 0.78, 0.86),
-            shadow=(0.0, 0.0, 0.0, 0.65),
+            fg=(0.93, 0.95, 0.92, 0.80),
+            shadow=(0.0, 0.0, 0.0, 0.75),
             align=TextNode.ACenter,
             mayChange=False,
         )
@@ -189,8 +210,8 @@ class RangeScene:
             text="PRACTICE RANGE  /  150 m",
             pos=(0.055, -0.075),
             scale=0.035,
-            fg=(0.82, 0.88, 0.86, 0.88),
-            shadow=(0.0, 0.0, 0.0, 0.75),
+            fg=(0.93, 0.95, 0.94, 0.90),
+            shadow=(0.0, 0.0, 0.0, 0.80),
             align=TextNode.ALeft,
             mayChange=True,
         )
@@ -198,8 +219,8 @@ class RangeScene:
             text="CLICK TO AIM     LMB FIRE     RMB OPTIC     ESC RELEASE",
             pos=(0.0, -0.92),
             scale=0.034,
-            fg=(0.88, 0.91, 0.90, 0.9),
-            shadow=(0.0, 0.0, 0.0, 0.8),
+            fg=(0.92, 0.94, 0.93, 0.9),
+            shadow=(0.0, 0.0, 0.0, 0.85),
             align=TextNode.ACenter,
             mayChange=True,
         )
@@ -243,6 +264,7 @@ class RangeScene:
     def set_target_distance(self, distance_m: float) -> None:
         self.target_distance_m = distance_m
         self.target_root.setPos(0.0, distance_m, 0.0)
+        self.lighting.set_focus_distance(distance_m)
         if hasattr(self, "range_label"):
             self.range_label.setText(f"PRACTICE RANGE  /  {distance_m:.0f} m")
 
@@ -279,6 +301,8 @@ class RangeScene:
         for sample in selected[1:]:
             lines.drawTo(*sample_to_panda(sample))
         self.trajectory_node = self.effects_root.attachNewNode(lines.create())
+        self.trajectory_node.setLightOff(1)
+        self.trajectory_node.setFogOff(1)
         self.trajectory_node.hide()
         if not hasattr(self, "tracer"):
             self.tracer = add_sphere(
@@ -286,35 +310,45 @@ class RangeScene:
                 self.effects_root,
                 "tracer",
                 (0.0, 0.0, 0.0),
-                (0.065, 0.065, 0.065),
+                (0.055, 0.055, 0.055),
                 (1.0, 0.64, 0.12, 1.0),
             )
-            apply_material(
+            apply_flat_material(
                 self.tracer,
                 "tracer-emissive",
-                (1.0, 0.42, 0.04, 1.0),
-                emission=(1.0, 0.18, 0.01, 1.0),
+                (1.0, 0.45, 0.05, 1.0),
+                roughness=0.4,
+                emission=(1.9, 0.62, 0.08, 1.0),
             )
+            self.tracer.setLightOff(1)
             self.impact_marker = add_sphere(
                 self.base.loader,
                 self.effects_root,
                 "impact",
                 (0.0, 0.0, 0.0),
-                (0.18, 0.18, 0.18),
-                (1.0, 0.18, 0.08, 1.0),
+                (0.14, 0.14, 0.14),
+                (0.42, 0.40, 0.36, 1.0),
             )
         self.tracer.show()
         self.impact_marker.hide()
 
+    def _mark_impact(self, score: TargetScore) -> None:
+        """Place a bullet-hole decal on the target face where the shot crossed it."""
+
+        if score.lateral_error_m is None or score.vertical_error_m is None:
+            return
+        if (
+            abs(score.lateral_error_m) > TARGET_FACE_HALF_M
+            or abs(score.vertical_error_m) > TARGET_FACE_HALF_M
+        ):
+            return
+        decal = self.impact_decals[self._next_decal_index]
+        self._next_decal_index = (self._next_decal_index + 1) % len(self.impact_decals)
+        decal.setPos(score.lateral_error_m, -0.006, score.vertical_error_m)
+        decal.show()
+
     def reset_target_color(self) -> None:
-        colors = (
-            (0.11, 0.13, 0.13, 1.0),
-            (0.78, 0.74, 0.62, 1.0),
-            (0.72, 0.17, 0.12, 1.0),
-            (0.92, 0.78, 0.24, 1.0),
-        )
-        for ring, color in zip(self.target_rings, colors, strict=True):
-            ring.setColor(*color)
+        self.target_board.setColor(0.40, 0.39, 0.36, 1.0)
         self.target_root.setP(0.0)
         self.target_reaction_started_s = -1.0
 
@@ -325,11 +359,14 @@ class RangeScene:
         self.scope_overlay.hide()
         self.crosshair.show()
         self.instructions.show()
-        self.base.camLens.setFov(70.0)
+        self.base.camLens.setFov(HIP_FIELD_OF_VIEW_DEG)
         self.reset_target_color()
         self.view_model.reset()
         self.shot_result = None
         self.pending_score = None
+        for decal in self.impact_decals:
+            decal.hide()
+        self._next_decal_index = 0
         if self.trajectory_node is not None:
             self.trajectory_node.removeNode()
             self.trajectory_node = None
@@ -373,7 +410,10 @@ class RangeScene:
         target = 1.0 if self.scope_enabled else 0.0
         blend_speed = min(1.0, self.clock.getDt() * 8.0)
         self.scope_blend += (target - self.scope_blend) * blend_speed
-        self.base.camLens.setFov(70.0 + (12.5 - 70.0) * self.scope_blend)
+        self.base.camLens.setFov(
+            HIP_FIELD_OF_VIEW_DEG
+            + (SCOPE_FIELD_OF_VIEW_DEG - HIP_FIELD_OF_VIEW_DEG) * self.scope_blend
+        )
         self.scope_overlay.setColorScale(1.0, 1.0, 1.0, self.scope_blend)
         if self.scope_blend < 0.01 and not self.scope_enabled:
             self.scope_overlay.hide()
@@ -383,12 +423,8 @@ class RangeScene:
         self.instructions.setColorScale(
             1.0, 1.0, 1.0, max(0.0, 1.0 - self.scope_blend * 1.4)
         )
-        self.view_model.update(
-            now, self.clock.getDt(), self.scope_blend
-        )
-        self.base.camera.setHpr(
-            -self.azimuth_deg, self.elevation_deg, 0.0
-        )
+        self.view_model.update(now, self.clock.getDt(), self.scope_blend)
+        self.base.camera.setHpr(-self.azimuth_deg, self.elevation_deg, 0.0)
 
     def _update_shot(self, now: float) -> None:
         if self.shot_result is None or self.shot_started_s < 0.0:
@@ -404,12 +440,14 @@ class RangeScene:
             self.trajectory_node.show()
             if self.pending_score is not None:
                 if self.pending_score.hit:
-                    self.target_rings[0].setColor(0.14, 0.60, 0.30, 1.0)
+                    self._mark_impact(self.pending_score)
+                    self.target_board.setColor(0.20, 0.44, 0.26, 1.0)
                     self.target_reaction_started_s = now
                 elif self.pending_score.reached_target:
-                    self.target_rings[0].setColor(0.90, 0.38, 0.08, 1.0)
+                    self._mark_impact(self.pending_score)
+                    self.target_board.setColor(0.52, 0.32, 0.14, 1.0)
                 else:
-                    self.target_rings[0].setColor(0.32, 0.38, 0.40, 1.0)
+                    self.target_board.setColor(0.30, 0.31, 0.32, 1.0)
             self.shot_started_s = -1.0
             return
         index = bisect_left(self.shot_times, simulated_time)
@@ -446,11 +484,10 @@ class RangeScene:
     def destroy(self) -> None:
         self.base.taskMgr.remove("ballistics-range-update")
         self.base.ignoreAll()
-        self.base.render.clearFog()
-        self.base.render.clearLight(self.ambient_node)
-        self.base.render.clearLight(self.sun_node)
         self.view_model.destroy()
         self.environment.destroy()
+        self.sky.destroy()
+        self.lighting.destroy()
         self.scope_overlay.removeNode()
         self.world_root.removeNode()
         self.effects_root.removeNode()
