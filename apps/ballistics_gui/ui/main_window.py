@@ -33,7 +33,7 @@ class MainWindow(QMainWindow):
         self.thread_pool = QThreadPool(self)
         self._request_id = 0
         self._workers: dict[int, SimulationWorker] = {}
-        self.setWindowTitle("Ballistics Range Lab — Phase 2.1")
+        self.setWindowTitle("Ballistics Range Lab — Phase 2.2")
         self.resize(1500, 920)
         self.setMinimumSize(1120, 720)
 
@@ -64,7 +64,7 @@ class MainWindow(QMainWindow):
         layout.setContentsMargins(18, 18, 18, 12)
         layout.setSpacing(12)
 
-        eyebrow = QLabel("BALLISTICS LAB  /  PHASE 2.1")
+        eyebrow = QLabel("BALLISTICS LAB  /  PHASE 2.2")
         eyebrow.setObjectName("eyebrow")
         layout.addWidget(eyebrow)
         title = QLabel("Virtual Range")
