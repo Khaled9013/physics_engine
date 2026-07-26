@@ -13,10 +13,19 @@ scene without containing physics or rendering implementation.
 CSV parsing, and a `QRunnable` worker. It has no Panda3D dependency and can be tested headlessly.
 
 `render/assets.py` resolves committed visual assets from the repository, validates required files,
-and applies consistent texture filtering. `render/environment.py` owns the range dressing and
-ground materials. `render/view_model.py` owns the first-person hand, rifle, optic, recoil, and
-muzzle-effect composition. `render/range_scene.py` orchestrates those components, target feedback,
-scope presentation, input, and trajectory playback.
+and applies consistent texture filtering and colour-space handling.
+
+`render/range_layout.py` holds every placement, dimension, and tint as plain data. It imports
+nothing from Panda3D, so the layout is inspected by headless tests. `render/terrain.py` generates
+ground meshes with tangents, world-space texture coordinates, and deterministic relief.
+`render/materials.py` builds physically-based materials from committed texture sets.
+`render/sky.py` owns the sky dome and distance haze. `render/lighting.py` owns the sun, bounce
+fill, ambient floor, and shadow framing.
+
+`render/environment.py` is a builder over those parts and holds no content of its own.
+`render/view_model.py` owns the first-person hand, rifle, optic, recoil, and muzzle-effect
+composition. `render/range_scene.py` orchestrates those components, target feedback, scope
+presentation, input, and trajectory playback.
 
 `ui/range_widget.py` owns the native X11 child used by Panda3D. A Qt timer advances Panda3D's task
 manager inside the Qt event loop. Resize and input events are forwarded explicitly.
@@ -25,13 +34,26 @@ manager inside the Qt event loop. Resize and input events are forwarded explicit
 
 The world uses Panda3D plus `panda3d-simplepbr` for tonemapping, normal-map support, shadows, and
 consistent material handling. The deterministic range layout remains code-authored, while local CC0
-grass, gravel, rifle, optic, and hand assets replace the former placeholder presentation. Asset
+grass, gravel, sky, rifle, optic, and hand assets replace the former placeholder presentation. Asset
 publisher, license, checksum, conversion, and local treatment are recorded in `assets/README.md`.
 
-The first-person rig is camera-space presentation artwork. It is isolated from world exposure so it
-stays readable across sun and shadow directions. An authored hand pose hides its bundled proxy model
-and carries the detailed textured rifle and separate optic. Small elapsed-time animations provide
-breathing, aim-down-sights motion, recoil, flash, and recovery.
+Lighting is dominated by the sky rather than by the sun: cube faces projected from the committed
+panorama drive `simplepbr`'s image-based lighting, and the directional sun contributes shaping and
+the only shadow-casting frustum. That frustum is sized and re-centred explicitly, because Panda3D's
+default shadow film covers roughly a unit square and would otherwise shadow nothing on a
+kilometre-long range. Distance haze uses `simplepbr`'s in-shader exponential fog, which requires the
+pipeline to be built with fog enabled — `render.setFog` alone has no effect under its shader.
+
+`simplepbr` selects samplers by texture-stage mode: `MModulate` for base colour, `MNormal` for
+normals, `MSelector` for packed occlusion/roughness/metalness. It multiplies sampled roughness and
+metalness by the `Material` scalars, so ORM-backed materials keep those scalars at 1.0.
+
+The first-person rig is camera-space presentation artwork, lit by scene lights plus its own key and
+rim so it stays readable across sun directions without being unshaded. It is excluded from shadow
+casting, because presentation-scale artwork would cast a wrongly sized shadow onto the ground. The
+bundled arms are fitted to the detailed rifle's bounding box rather than to the coarse proxy weapon
+they were authored around. Small elapsed-time animations provide breathing, aim-down-sights motion,
+recoil, flash, and recovery.
 
 The circular scope mask is generated locally at startup. Its thin reticle, ticks, vignette, and lens
 tint are decorative and intentionally have no real optic calibration. The target is a non-human
@@ -77,6 +99,13 @@ initialization; no allocation or asset loading occurs per simulation step.
 ## Test seams
 
 Validation, CLI construction, CSV parsing, coordinate mapping, and target intersection are pure
-Python. The worker accepts a CLI path. Asset tests verify required files, BAM signatures,
-provenance, and the no-network runtime boundary. Smoke-test mode opens a deterministic scene, runs a
-real C shot, captures a framebuffer, and exits without user input.
+Python. Range layout and terrain relief are too: `range_layout` and `terrain_height` are covered by
+tests that need no graphics context, which is why layout data lives apart from the builder that
+consumes it. Asset tests walk the nested asset record recursively, so a newly vendored file is
+covered without editing the test, and they verify BAM signatures, provenance, and the no-network
+runtime boundary.
+
+Smoke-test mode opens a deterministic scene, runs a real C shot, captures a framebuffer, and exits
+without user input. Its sequence is chained off the renderer's ready signal rather than off fixed
+delays from launch: scene construction cost varies with the host and with range content, and a
+wall-clock schedule silently captures blank frames whenever loading runs long.
